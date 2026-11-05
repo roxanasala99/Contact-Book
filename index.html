@@ -52,7 +52,14 @@ h1{font:400 30px/1 var(--display);white-space:nowrap;margin:0;letter-spacing:.2p
 .list{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden}
 .row{min-width:0;display:flex;gap:12px;align-items:center;padding:12px 14px;background:var(--surface);border:0;text-align:left;width:100%;cursor:pointer}
 .row:active{background:var(--chip)}
-.av{flex:none;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:var(--chip);color:var(--accent);font:600 15px var(--body)}
+.av{flex:none;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:var(--chip);color:var(--accent);font:600 15px var(--body);object-fit:cover}
+.av.lg{width:72px;height:72px;font-size:24px}
+.photo-pick{display:flex;align-items:center;gap:14px}
+.photo-pick .btns{display:flex;gap:8px;flex-wrap:wrap}
+.small-btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;color:var(--accent)}
+.phone-row{display:grid;grid-template-columns:minmax(0,44%) 1fr;gap:8px}
+.d-top{display:flex;align-items:center;gap:14px;margin:-4px 0 14px}
+.d-top .d-role{margin:0}
 .who{min-width:0;flex:1;display:block;overflow:hidden}
 .name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .role{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -303,6 +310,35 @@ function openBackup(){
 }
 $("#backupBtn").addEventListener("click",openBackup);
 
+/* ---------- phone prefixes ---------- */
+const COUNTRIES=[["AF","Afghanistan","93"],["AL","Albania","355"],["DZ","Algeria","213"],["AD","Andorra","376"],["AO","Angola","244"],["AR","Argentina","54"],["AM","Armenia","374"],["AU","Australia","61"],["AT","Austria","43"],["AZ","Azerbaijan","994"],["BH","Bahrain","973"],["BD","Bangladesh","880"],["BY","Belarus","375"],["BE","Belgium","32"],["BO","Bolivia","591"],["BA","Bosnia & Herzegovina","387"],["BR","Brazil","55"],["BG","Bulgaria","359"],["KH","Cambodia","855"],["CM","Cameroon","237"],["CA","Canada","1"],["CL","Chile","56"],["CN","China","86"],["CO","Colombia","57"],["CR","Costa Rica","506"],["HR","Croatia","385"],["CU","Cuba","53"],["CY","Cyprus","357"],["CZ","Czechia","420"],["DK","Denmark","45"],["DO","Dominican Republic","1"],["EC","Ecuador","593"],["EG","Egypt","20"],["SV","El Salvador","503"],["EE","Estonia","372"],["ET","Ethiopia","251"],["FI","Finland","358"],["FR","France","33"],["GE","Georgia","995"],["DE","Germany","49"],["GH","Ghana","233"],["GR","Greece","30"],["GT","Guatemala","502"],["HN","Honduras","504"],["HK","Hong Kong","852"],["HU","Hungary","36"],["IS","Iceland","354"],["IN","India","91"],["ID","Indonesia","62"],["IR","Iran","98"],["IQ","Iraq","964"],["IE","Ireland","353"],["IL","Israel","972"],["IT","Italy","39"],["CI","Ivory Coast","225"],["JM","Jamaica","1"],["JP","Japan","81"],["JO","Jordan","962"],["KZ","Kazakhstan","7"],["KE","Kenya","254"],["XK","Kosovo","383"],["KW","Kuwait","965"],["LV","Latvia","371"],["LB","Lebanon","961"],["LY","Libya","218"],["LI","Liechtenstein","423"],["LT","Lithuania","370"],["LU","Luxembourg","352"],["MY","Malaysia","60"],["MT","Malta","356"],["MX","Mexico","52"],["MD","Moldova","373"],["MC","Monaco","377"],["ME","Montenegro","382"],["MA","Morocco","212"],["MZ","Mozambique","258"],["NP","Nepal","977"],["NL","Netherlands","31"],["NZ","New Zealand","64"],["NI","Nicaragua","505"],["NG","Nigeria","234"],["MK","North Macedonia","389"],["NO","Norway","47"],["OM","Oman","968"],["PK","Pakistan","92"],["PS","Palestine","970"],["PA","Panama","507"],["PY","Paraguay","595"],["PE","Peru","51"],["PH","Philippines","63"],["PL","Poland","48"],["PT","Portugal","351"],["PR","Puerto Rico","1"],["QA","Qatar","974"],["RO","Romania","40"],["RU","Russia","7"],["RW","Rwanda","250"],["SM","San Marino","378"],["SA","Saudi Arabia","966"],["SN","Senegal","221"],["RS","Serbia","381"],["SG","Singapore","65"],["SK","Slovakia","421"],["SI","Slovenia","386"],["ZA","South Africa","27"],["KR","South Korea","82"],["ES","Spain","34"],["LK","Sri Lanka","94"],["SE","Sweden","46"],["CH","Switzerland","41"],["SY","Syria","963"],["TW","Taiwan","886"],["TZ","Tanzania","255"],["TH","Thailand","66"],["TN","Tunisia","216"],["TR","Turkey","90"],["UG","Uganda","256"],["UA","Ukraine","380"],["AE","United Arab Emirates","971"],["GB","United Kingdom","44"],["US","United States","1"],["UY","Uruguay","598"],["UZ","Uzbekistan","998"],["VE","Venezuela","58"],["VN","Vietnam","84"],["ZM","Zambia","260"],["ZW","Zimbabwe","263"]];
+const flag=iso=>String.fromCodePoint(...[...iso].map(ch=>127397+ch.charCodeAt(0)));
+const PREFERRED_ORDER={US:1,CA:2,RU:1,KZ:2}; // which country wins when a prefix is shared
+function splitPhone(phone,iso){
+  phone=(phone||"").trim();
+  if(iso){const c=COUNTRIES.find(x=>x[0]===iso);if(c&&phone.replace(/\s/g,"").startsWith("+"+c[2]))return {iso,num:phone.replace(/^\s*\+\s*/, "").slice(c[2].length).trim()};}
+  if(phone.startsWith("+")){
+    const digits=phone.slice(1).replace(/\D/g,"");
+    const m=COUNTRIES.filter(c=>digits.startsWith(c[2])).sort((a,b)=>b[2].length-a[2].length||(PREFERRED_ORDER[a[0]]||9)-(PREFERRED_ORDER[b[0]]||9))[0];
+    if(m){let rest=phone.slice(1).trim();let need=m[2].length;let i=0;while(need>0&&i<rest.length){if(/\d/.test(rest[i]))need--;i++;}return {iso:m[0],num:rest.slice(i).trim()};}
+  }
+  return {iso:null,num:phone};
+}
+function lastIso(){try{return localStorage.getItem("contactbook.lastCountry")||"IT"}catch(e){return "IT"}}
+function countryOptions(sel){return COUNTRIES.map(([iso,name,code])=>`<option value="${iso}" ${iso===sel?"selected":""}>${flag(iso)} +${code} ${esc(name)}</option>`).join("");}
+
+/* ---------- photos ---------- */
+const safePhoto=p=>typeof p==="string"&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(p)?p:"";
+function avatar(c,cls=""){const p=safePhoto(c.photo);return p?`<img class="av ${cls}" src="${p}" alt="">`:`<span class="av ${cls}">${esc(initials(c.name))}</span>`;}
+function resizeImage(file,size=192){
+  return new Promise((resolve,reject)=>{
+    const url=URL.createObjectURL(file);const img=new Image();
+    img.onload=()=>{const s=Math.min(img.naturalWidth,img.naturalHeight);const cv=document.createElement("canvas");cv.width=cv.height=size;
+      const ctx=cv.getContext("2d");ctx.drawImage(img,(img.naturalWidth-s)/2,(img.naturalHeight-s)/2,s,s,0,0,size,size);
+      URL.revokeObjectURL(url);resolve(cv.toDataURL("image/jpeg",0.82));};
+    img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error("image"));};img.src=url;});
+}
+
 /* ---------- list ---------- */
 function render(){
   updateStatus();
@@ -324,7 +360,7 @@ function render(){
   for(const c of list){const k=metLabel(c);if(k!==last){groups.push({k,items:[]});last=k;}groups[groups.length-1].items.push(c);}
   main.innerHTML=groups.map(g=>`<div class="group"><h2>Met ${esc(g.k==="Date not set"?"· date not set":g.k)}</h2><div class="list">${g.items.map(c=>`
     <button class="row" type="button" data-id="${esc(c.id)}">
-      <span class="av">${esc(initials(c.name))}</span>
+      ${avatar(c)}
       <span class="who"><div class="name">${esc(c.name)}</div><div class="role">${esc([c.title,c.company].filter(Boolean).join(" · ")||"No title")}</div></span>
       ${c.event?`<span class="ev">${esc(c.event)}</span>`:""}
     </button>`).join("")}</div></div>`).join("");
@@ -346,7 +382,7 @@ function openDetail(id){
   const tel=(c.phone||"").replace(/[^\d+]/g,"");
   openSheet(`
     <div class="sheet-head"><h3 id="sheetTitle">${esc(c.name)}</h3><button class="x" type="button" data-close>Close</button></div>
-    <p class="d-role">${esc([c.title,c.company].filter(Boolean).join(" · "))}</p>
+    <div class="d-top">${avatar(c,"lg")}<p class="d-role">${esc([c.title,c.company].filter(Boolean).join(" · "))}</p></div>
     <div class="facts">
       <div class="fact"><span>LinkedIn</span>${li?`<a href="${esc(li)}" target="_blank" rel="noopener">${esc(li.replace(/^https?:\/\/(www\.)?/,""))}</a>`:'<div class="val">—</div>'}</div>
       <div class="fact"><span>Phone</span>${c.phone?`<a href="tel:${esc(tel)}">${esc(c.phone)}</a>`:'<div class="val">—</div>'}</div>
@@ -365,16 +401,24 @@ function openForm(id){
   const now=new Date();
   const m=c.metMonth??(id?"":now.getMonth()+1), y=c.metYear??(id?"":now.getFullYear());
   const events=[...new Set(contacts.map(x=>x.event).filter(Boolean))];
+  const ph=splitPhone(c.phone,c.phoneCountry);
+  let photo=safePhoto(c.photo);
   openSheet(`
     <div class="sheet-head"><h3 id="sheetTitle">${id?"Edit contact":"New contact"}</h3><button class="x" type="button" data-close>Cancel</button></div>
     <form id="f" novalidate>
+      <div class="photo-pick"><span id="f-av">${avatar(c,"lg")}</span>
+        <div class="btns"><label class="small-btn" for="f-photo" id="f-photo-lbl" style="display:inline-block">${safePhoto(c.photo)?"Change photo":"Add photo"}</label>
+        <button class="small-btn" type="button" id="f-photo-rm" ${safePhoto(c.photo)?"":"hidden"}>Remove</button></div>
+        <input id="f-photo" type="file" accept="image/*" hidden></div>
       <label for="f-name">Full name *<input id="f-name" name="name" required autocomplete="off" value="${esc(c.name)}"></label>
       <div class="two">
         <label for="f-title">Professional title<input id="f-title" name="title" value="${esc(c.title)}" placeholder="Head of Partnerships"></label>
         <label for="f-company">Company<input id="f-company" name="company" value="${esc(c.company)}"></label>
       </div>
       <label for="f-li">LinkedIn<input id="f-li" name="linkedin" inputmode="url" autocapitalize="off" value="${esc(c.linkedin)}" placeholder="linkedin.com/in/username"></label>
-      <label for="f-phone">Phone<input id="f-phone" name="phone" type="tel" value="${esc(c.phone)}" placeholder="+39 333 123 4567"></label>
+      <div><label for="f-phone">Phone</label>
+        <div class="phone-row"><select id="f-cc" name="phoneCountry" aria-label="Country code"><option value="">No prefix</option>${countryOptions(ph.iso||(c.phone?"":lastIso()))}</select>
+        <input id="f-phone" name="phone" type="tel" inputmode="tel" value="${esc(ph.num)}" placeholder="333 123 4567"></div></div>
       <label for="f-email">Email<input id="f-email" name="email" type="email" autocapitalize="off" value="${esc(c.email)}" placeholder="name@company.com"></label>
       <label for="f-event">Event or conference<input id="f-event" name="event" list="evlist" value="${esc(c.event)}" placeholder="Web Summit Lisbon"></label>
       <datalist id="evlist">${events.map(e=>`<option value="${esc(e)}"></option>`).join("")}</datalist>
@@ -389,12 +433,18 @@ function openForm(id){
         <button class="btn primary" type="submit">Save</button>
       </div>
     </form>`);
+  const refreshAv=()=>{$("#f-av").innerHTML=avatar({name:$("#f-name").value||c.name,photo});$("#f-photo-rm").hidden=!photo;$("#f-photo-lbl").textContent=photo?"Change photo":"Add photo";};
+  $("#f-photo").onchange=async e=>{const f=e.target.files[0];if(!f)return;
+    try{photo=await resizeImage(f);refreshAv();}catch(_){$("#f-err").textContent="That image couldn't be opened. Try a JPEG or PNG.";}};
+  $("#f-photo-rm").onclick=()=>{photo="";refreshAv();};
   $("#f").addEventListener("submit",async e=>{
     e.preventDefault();
     const fd=new FormData(e.target);const o=Object.fromEntries([...fd].map(([k,v])=>[k,String(v).trim()]));
     if(!o.name){$("#f-err").textContent="Add a name to save this contact.";$("#f-name").focus();return;}
-    const rec={id:id||("c"+Date.now().toString(36)+Math.random().toString(36).slice(2,6)),name:o.name,title:o.title,company:o.company,linkedin:o.linkedin,phone:o.phone,email:o.email,event:o.event,
+    const rec={id:id||("c"+Date.now().toString(36)+Math.random().toString(36).slice(2,6)),name:o.name,title:o.title,company:o.company,linkedin:o.linkedin,phone:(()=>{const n=o.phone.replace(/^\+/,"");if(!o.phone)return "";if(o.phone.startsWith("+")||!o.phoneCountry)return o.phone;const cc=COUNTRIES.find(x=>x[0]===o.phoneCountry);return "+"+cc[2]+" "+(["IT","SM"].includes(cc[0])?n:n.replace(/^0(?=\d)/,""));})(),
+      phoneCountry:o.phone?o.phoneCountry:"",photo,email:o.email,event:o.event,
       metMonth:o.metMonth?+o.metMonth:null,metYear:o.metYear?+o.metYear:null,notes:o.notes,updatedAt:Date.now(),createdAt:c.createdAt||Date.now()};
+    if(o.phoneCountry){try{localStorage.setItem("contactbook.lastCountry",o.phoneCountry)}catch(_){}}
     try{await saveContact(rec);closeSheet();toast(id?"Contact updated":"Contact saved");}
     catch(err){$("#f-err").textContent="Couldn't save. Check your connection and try again.";}
   });
