@@ -72,7 +72,10 @@ h1{font:400 30px/1 var(--display);white-space:nowrap;margin:0;letter-spacing:.2p
 .gal.selecting button:not(.sel) img{opacity:.75}
 .gal-tools{display:flex;gap:8px}
 .gal-bar{display:flex;gap:8px;margin:-6px 0 14px}
-.gal-bar .btn{padding:10px}
+.gal-bar{flex-wrap:wrap}
+.gal-bar .btn{padding:10px;min-width:0}
+.gal-bar .btn:disabled{opacity:.45;cursor:default}
+#g-prof{flex-basis:100%}
 .picker{position:fixed;inset:0;z-index:45;background:rgba(10,15,25,.5);display:flex;align-items:flex-end;justify-content:center}
 .picker-box{background:var(--surface);width:100%;max-width:640px;max-height:80%;border-radius:20px 20px 0 0;display:flex;flex-direction:column;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
 .picker-box h3{font:400 24px/1.1 var(--display);margin:0}
@@ -173,7 +176,7 @@ textarea{min-height:96px;resize:vertical}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
-const APP_VERSION="11";
+const APP_VERSION="12";
 const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
 let contacts=[]; let db=null; let col=null; let mode="local";
 const $=s=>document.querySelector(s);
@@ -460,7 +463,7 @@ function setSelecting(on){galSelecting=on;if(!on)galSel.clear();
   box.querySelectorAll("[data-p]").forEach(b=>{b.classList.toggle("sel",galSel.has(b.dataset.p));b.setAttribute("aria-pressed",galSel.has(b.dataset.p));});
   const n=galSel.size;$("#g-sel").textContent=on?"Done":"Select";$("#g-add").hidden=on;
   $("#g-title").textContent=on?(n?`${n} selected`:"Tap photos to select"):"Photos & slides";
-  $("#g-bar").hidden=!on;$("#g-move").disabled=!n;$("#g-del").disabled=!n;$("#g-del").textContent=n?`Delete (${n})`:"Delete";$("#g-del").dataset.confirm="";}
+  $("#g-bar").hidden=!on;$("#g-move").disabled=!n;$("#g-prof").disabled=n!==1;$("#g-del").disabled=!n;$("#g-del").textContent=n?`Delete (${n})`:"Delete";$("#g-del").dataset.confirm="";}
 async function fillGallery(id){
   const box=$("#gal"),head=$("#gal-status");if(!box)return;
   const c=contacts.find(x=>x.id===id);if(!c)return;
@@ -563,7 +566,7 @@ function openDetail(id){
     <div class="gal-head"><span id="g-title">Photos &amp; slides</span><div class="gal-tools"><button class="small-btn" type="button" id="g-sel" hidden>Select</button><button class="small-btn" type="button" id="g-add">Add photos</button></div></div>
     <input id="g-file" class="vh" type="file" accept="image/*" multiple>
     <p class="gal-note" id="gal-note"></p><div class="gal" id="gal"></div>
-    <div class="gal-bar" id="g-bar" hidden><button class="btn" type="button" id="g-move">Move to…</button><button class="btn danger" type="button" id="g-del">Delete</button></div>
+    <div class="gal-bar" id="g-bar" hidden><button class="btn" type="button" id="g-prof">Make profile photo</button><button class="btn" type="button" id="g-move">Move to…</button><button class="btn danger" type="button" id="g-del">Delete</button></div>
     <div class="actions">
       ${c.phone?`<button class="btn" type="button" data-copy="${esc(c.phone)}">Copy number</button>`:""}
     </div>`);
@@ -574,6 +577,11 @@ function openDetail(id){
     if(galSelecting){const p=b.dataset.p;galSel.has(p)?galSel.delete(p):galSel.add(p);setSelecting(true);}
     else openLightbox(c.id,+b.dataset.gi);};
   $("#g-sel").onclick=()=>setSelecting(!galSelecting);
+  $("#g-prof").onclick=async()=>{const [p]=[...galSel];if(!p)return;const b=$("#g-prof");b.disabled=true;b.textContent="Setting…";
+    try{const [u]=await signedUrls([p+".jpg"]);const blob=await fetch(u).then(r=>{if(!r.ok)throw new Error("fetch");return r.blob();});
+      const photo=await resizeImage(blob);const cur=contacts.find(x=>x.id===c.id);
+      await saveContact({...cur,photo,updatedAt:Date.now()});toast("Profile photo updated");openDetail(c.id);return;}
+    catch(_){toast("Couldn't set the profile photo. Try again.");b.textContent="Make profile photo";b.disabled=false;}};
   $("#g-move").onclick=async()=>{const paths=[...galSel];const to=await pickContact(c.id,paths.length===1?"Move photo to…":`Move ${paths.length} photos to…`);if(!to)return;
     try{await moveGalleryPhotos(c.id,to,paths);toast(`Moved to ${(contacts.find(x=>x.id===to)||{}).name||"contact"}`);}catch(_){toast("Couldn't move the photos. Try again.");}
     setSelecting(false);fillGallery(c.id);};
