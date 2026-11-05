@@ -146,6 +146,11 @@ h1{font:400 clamp(23px,7vw,30px)/1 var(--display);white-space:nowrap;margin:0;le
 .seg button[aria-pressed="true"]{border-color:var(--ink)}
 .seg .f1{font:400 22px/1 "Instrument Serif",Georgia,serif}
 .seg .f2{font:600 19px/1 "IBM Plex Sans",system-ui,sans-serif}
+.gear{position:fixed;left:max(16px, calc(50% - 304px));bottom:calc(20px + env(safe-area-inset-bottom));z-index:6;width:52px;height:52px;border-radius:16px;border:1px solid var(--line);background:var(--surface);color:var(--ink);display:grid;place-items:center;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.14)}
+.set-list{display:grid;gap:10px}
+.ver{display:flex;justify-content:space-between;gap:10px;font-size:14px;color:var(--ink);padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--field);margin:0 0 10px}
+.ver b{font-weight:600}
+.ver .new{color:var(--flag);font-weight:600}
 .gal-note{font-size:13px;color:var(--muted);margin:0 0 14px}
 .lb{position:fixed;inset:0;z-index:40;background:#000;display:flex;flex-direction:column;color:#fff}
 .lb-top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 12px 10px}
@@ -223,6 +228,7 @@ textarea{min-height:96px;resize:vertical}
   </header>
   <main id="main"></main>
 </div>
+<button class="gear" id="settingsBtn" type="button" aria-label="Settings"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
 <button class="fab" id="addBtn" type="button">+ Add contact</button>
 
 <div class="scrim" id="scrim"></div>
@@ -231,7 +237,7 @@ textarea{min-height:96px;resize:vertical}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
-const APP_VERSION="21";
+const APP_VERSION="22";
 const FLOWER_SVG='<svg class="flower" viewBox="-50 -50 100 100" aria-hidden="true"><path class="pt" transform="rotate(0)" d="M0 -7 C 13.5 -14.0, 15.8 -32.0, 0.0 -40.0 C -15.0 -32.8, -12.8 -12.0, 0 -7 Z"/><path class="pt" transform="rotate(58)" d="M0 -7 C 15.6 -13.0, 14.6 -29.8, 1.8 -37.2 C -14.0 -30.5, -8.9 -11.2, 0 -7 Z"/><path class="pt" transform="rotate(122)" d="M0 -7 C 12.0 -14.6, 16.4 -33.3, -1.2 -41.6 C -15.6 -34.1, -15.3 -12.5, 0 -7 Z"/><path class="pt" transform="rotate(178)" d="M0 -7 C 15.0 -13.4, 15.1 -30.7, 1.2 -38.4 C -14.4 -31.5, -10.2 -11.5, 0 -7 Z"/><path class="pt" transform="rotate(238)" d="M0 -7 C 10.8 -14.3, 16.1 -32.6, -1.8 -40.8 C -15.3 -33.5, -16.0 -12.2, 0 -7 Z"/><path class="pt" transform="rotate(300)" d="M0 -7 C 13.8 -13.3, 15.0 -30.4, 0.6 -38.0 C -14.2 -31.2, -11.1 -11.4, 0 -7 Z"/><circle class="ct" cx="1" cy="0" r="8.5"/></svg>';
 let lastVisible=[];
 const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -512,6 +518,35 @@ function openStyle(){
   };
   draw();
 }
+/* ---------- settings & manual update ---------- */
+async function liveVersion(){try{const t=await fetch("./index.html?check="+Date.now(),{cache:"no-store"}).then(r=>r.text());return (t.match(/APP_VERSION="(\d+)"/)||[])[1]||null;}catch(e){return null;}}
+async function hardUpdate(){
+  try{const regs=await navigator.serviceWorker?.getRegistrations?.();if(regs)for(const r of regs)await r.unregister();}catch(e){}
+  try{if(window.caches)for(const k of await caches.keys())await caches.delete(k);}catch(e){}
+  location.replace(location.pathname+"?u="+Date.now());
+}
+function openSettings(){
+  openSheet(`<div class="sheet-head"><h3 id="sheetTitle">Settings</h3><button class="x" type="button" data-close>Close</button></div>
+    <div class="ver"><span>App version <b>${APP_VERSION}</b></span><span id="s-live">Checking for updates…</span></div>
+    <div class="set-list">
+      <button class="btn primary" type="button" id="s-upd">Update app now</button>
+      <p class="backup-note" style="margin:-2px 0 6px">Reloads the app with the newest version. Your contacts, photos and settings stay as they are.</p>
+      <button class="btn" type="button" id="s-style">Style &amp; colours</button>
+      <button class="btn" type="button" id="s-export">Export &amp; backup</button>
+      ${sb?`<button class="btn" type="button" id="s-acc">${session?"Account &amp; sync":"Sign in to sync"}</button>`:""}
+    </div>`);
+  liveVersion().then(v=>{const el=$("#s-live");if(!el)return;
+    if(!v)el.textContent="Couldn't check (offline?)";
+    else if(v===APP_VERSION)el.textContent="Up to date";
+    else{el.innerHTML=`<span class="new">Version ${esc(v)} available</span>`;}});
+  $("#s-upd").onclick=e=>{e.currentTarget.textContent="Updating…";e.currentTarget.disabled=true;hardUpdate();};
+  $("#s-style").onclick=()=>openStyle();
+  $("#s-export").onclick=()=>openBackup();
+  const acc=$("#s-acc");if(acc)acc.onclick=()=>openAccount();
+}
+$("#settingsBtn").addEventListener("click",openSettings);
+if(/[?&]u=\d/.test(location.search)){try{history.replaceState(null,"",location.pathname)}catch(e){};setTimeout(()=>toast("App updated to version "+APP_VERSION),400);}
+
 $("#styleBtn").addEventListener("click",openStyle);
 applyStyle();
 
