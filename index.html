@@ -89,6 +89,10 @@ h1{font:400 30px/1 var(--display);white-space:nowrap;margin:0;letter-spacing:.2p
 .switch input:checked{background:var(--flag)}
 .switch input:checked::after{transform:translateX(18px)}
 @media (prefers-reduced-motion: reduce){.switch input,.switch input::after{transition:none}}
+.d-head{align-items:flex-start}
+.d-head h3{flex:1;min-width:0;overflow-wrap:anywhere}
+.d-btns{display:flex;gap:8px;flex:none}
+.d-btns .edit-top{flex:none;padding:8px 16px}
 .gal-note{font-size:13px;color:var(--muted);margin:0 0 14px}
 .lb{position:fixed;inset:0;z-index:40;background:#000;display:flex;flex-direction:column;color:#fff}
 .lb-top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 12px 10px}
@@ -169,7 +173,7 @@ textarea{min-height:96px;resize:vertical}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
-const APP_VERSION="10";
+const APP_VERSION="11";
 const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
 let contacts=[]; let db=null; let col=null; let mode="local";
 const $=s=>document.querySelector(s);
@@ -545,7 +549,7 @@ function openDetail(id){
   const li=linkedinUrl(c.linkedin);
   const tel=(c.phone||"").replace(/[^\d+]/g,"");
   openSheet(`
-    <div class="sheet-head"><h3 id="sheetTitle" class="d-name${c.health?" flag":""}">${esc(c.name)}</h3><button class="x" type="button" data-close>Close</button></div>
+    <div class="sheet-head d-head"><h3 id="sheetTitle" class="d-name${c.health?" flag":""}">${esc(c.name)}</h3><div class="d-btns"><button class="btn primary edit-top" type="button" data-edit="${esc(c.id)}">Edit</button><button class="x" type="button" data-close>Close</button></div></div>
     ${c.health?'<div class="flag-chip">Health sector · close to my PhD</div>':""}
     <div class="d-top">${avatar(c,"lg")}<p class="d-role">${esc([c.title,c.company].filter(Boolean).join(" · "))}</p></div>
     <div class="facts">
@@ -562,7 +566,6 @@ function openDetail(id){
     <div class="gal-bar" id="g-bar" hidden><button class="btn" type="button" id="g-move">Move to…</button><button class="btn danger" type="button" id="g-del">Delete</button></div>
     <div class="actions">
       ${c.phone?`<button class="btn" type="button" data-copy="${esc(c.phone)}">Copy number</button>`:""}
-      <button class="btn primary" type="button" data-edit="${esc(c.id)}">Edit</button>
     </div>`);
   fillGallery(c.id);
   $("#g-add").onclick=()=>$("#g-file").click();
