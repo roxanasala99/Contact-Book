@@ -231,7 +231,7 @@ textarea{min-height:96px;resize:vertical}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
-const APP_VERSION="20";
+const APP_VERSION="21";
 const FLOWER_SVG='<svg class="flower" viewBox="-50 -50 100 100" aria-hidden="true"><path class="pt" transform="rotate(0)" d="M0 -7 C 13.5 -14.0, 15.8 -32.0, 0.0 -40.0 C -15.0 -32.8, -12.8 -12.0, 0 -7 Z"/><path class="pt" transform="rotate(58)" d="M0 -7 C 15.6 -13.0, 14.6 -29.8, 1.8 -37.2 C -14.0 -30.5, -8.9 -11.2, 0 -7 Z"/><path class="pt" transform="rotate(122)" d="M0 -7 C 12.0 -14.6, 16.4 -33.3, -1.2 -41.6 C -15.6 -34.1, -15.3 -12.5, 0 -7 Z"/><path class="pt" transform="rotate(178)" d="M0 -7 C 15.0 -13.4, 15.1 -30.7, 1.2 -38.4 C -14.4 -31.5, -10.2 -11.5, 0 -7 Z"/><path class="pt" transform="rotate(238)" d="M0 -7 C 10.8 -14.3, 16.1 -32.6, -1.8 -40.8 C -15.3 -33.5, -16.0 -12.2, 0 -7 Z"/><path class="pt" transform="rotate(300)" d="M0 -7 C 13.8 -13.3, 15.0 -30.4, 0.6 -38.0 C -14.2 -31.2, -11.1 -11.4, 0 -7 Z"/><circle class="ct" cx="1" cy="0" r="8.5"/></svg>';
 let lastVisible=[];
 const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -429,7 +429,7 @@ const EXCEL_COLS=[
   ["name","Name",c=>c.name||""],["title","Professional title",c=>c.title||""],["company","Company",c=>c.company||""],
   ["linkedin","LinkedIn",c=>linkedinUrl(c.linkedin)],["phone","Phone",c=>c.phone||""],["email","Email",c=>c.email||""],
   ["event","Event / conference",c=>c.event||""],["met","When met",c=>c.metYear?metLabel(c):""],
-  ["health","Health / close to my PhD",c=>c.health?"Yes":""],["notes","Notes",c=>c.notes||""],
+  ["health","Health link",c=>c.health?"Yes":""],["notes","Notes",c=>c.notes||""],
   ["photos","Photos & slides",c=>{const n=Array.isArray(c.gallery)?c.gallery.length:0;return n?n:"";}]];
 const DEFAULT_COLS=["name","title","company","linkedin","phone","email","event","met","notes"];
 function savedCols(){try{const v=JSON.parse(localStorage.getItem("contactbook.excelCols"));if(Array.isArray(v)&&v.length)return v;}catch(e){}return DEFAULT_COLS;}
@@ -670,7 +670,7 @@ function render(){
   const q=$("#q").value.trim().toLowerCase(), ev=$("#evFilter").value;
   const events=[...new Set(contacts.map(c=>(c.event||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
   const sel=$("#evFilter");const cur=sel.value;
-  sel.innerHTML='<option value="">All events</option><option value="__health">Health · close to my PhD</option>'+events.map(e=>`<option value="${esc(e)}">${esc(e)}</option>`).join("");
+  sel.innerHTML='<option value="">All events</option><option value="__health">Health link</option>'+events.map(e=>`<option value="${esc(e)}">${esc(e)}</option>`).join("");
   sel.value=events.includes(cur)||cur==="__health"?cur:"";
   let list=contacts.filter(c=>{
     if(sel.value==="__health"){if(!c.health)return false;}else if(sel.value&&(c.event||"").trim()!==sel.value)return false;
@@ -707,7 +707,7 @@ function openDetail(id){
   const tel=(c.phone||"").replace(/[^\d+]/g,"");
   openSheet(`
     <div class="sheet-head d-head"><h3 id="sheetTitle" class="d-name${c.health?" flag":""}">${esc(c.name)}</h3><div class="d-btns"><button class="btn primary edit-top" type="button" data-edit="${esc(c.id)}">Edit</button><button class="x" type="button" data-close>Close</button></div></div>
-    ${c.health?'<div class="flag-chip">Health sector · close to my PhD</div>':""}
+    ${c.health?'<div class="flag-chip">Health link</div>':""}
     <div class="d-top">${avatar(c,"lg")}<p class="d-role">${esc([c.title,c.company].filter(Boolean).join(" · "))}</p></div>
     <div class="facts">
       <div class="fact"><span>LinkedIn</span>${li?`<a href="${esc(li)}" target="_blank" rel="noopener">${esc(li.replace(/^https?:\/\/(www\.)?/,""))}</a>`:'<div class="val">—</div>'}</div>
@@ -779,7 +779,7 @@ function openForm(id){
         <label for="f-month">Month met<select id="f-month" name="metMonth"><option value="">—</option>${MONTHS.map((n,i)=>`<option value="${i+1}" ${+m===i+1?"selected":""}>${n}</option>`).join("")}</select></label>
         <label for="f-year">Year met<input id="f-year" name="metYear" type="number" inputmode="numeric" min="1950" max="2100" value="${esc(y)}"></label>
       </div>
-      <label class="switch" for="f-health"><span class="lbl">Works in health / close to my PhD<small>Health department, hospital, public health or similar. Their name shows in red.</small></span><input id="f-health" name="health" type="checkbox" role="switch" ${c.health?"checked":""}></label>
+      <label class="switch" for="f-health"><span class="lbl">Health link<small>Works in health. Their name shows in red.</small></span><input id="f-health" name="health" type="checkbox" role="switch" ${c.health?"checked":""}></label>
       <label for="f-notes">Notes<textarea id="f-notes" name="notes" placeholder="What you talked about, follow-ups, mutual contacts…">${esc(c.notes)}</textarea></label>
       <div class="err" id="f-err"></div>
       <div class="actions">${id?`<button class="btn danger" type="button" data-del="${esc(id)}">Delete contact</button>`:""}<button class="btn" type="button" data-close>Discard changes</button></div>
