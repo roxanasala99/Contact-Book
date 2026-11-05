@@ -228,7 +228,7 @@ textarea{min-height:96px;resize:vertical}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
-const APP_VERSION="16";
+const APP_VERSION="17";
 const FLOWER_SVG='<svg class="flower" viewBox="-50 -50 100 100" aria-hidden="true"><path class="pt" transform="rotate(0)" d="M0 -7 C 13.5 -14.0, 15.8 -32.0, 0.0 -40.0 C -15.0 -32.8, -12.8 -12.0, 0 -7 Z"/><path class="pt" transform="rotate(58)" d="M0 -7 C 15.6 -13.0, 14.6 -29.8, 1.8 -37.2 C -14.0 -30.5, -8.9 -11.2, 0 -7 Z"/><path class="pt" transform="rotate(122)" d="M0 -7 C 12.0 -14.6, 16.4 -33.3, -1.2 -41.6 C -15.6 -34.1, -15.3 -12.5, 0 -7 Z"/><path class="pt" transform="rotate(178)" d="M0 -7 C 15.0 -13.4, 15.1 -30.7, 1.2 -38.4 C -14.4 -31.5, -10.2 -11.5, 0 -7 Z"/><path class="pt" transform="rotate(238)" d="M0 -7 C 10.8 -14.3, 16.1 -32.6, -1.8 -40.8 C -15.3 -33.5, -16.0 -12.2, 0 -7 Z"/><path class="pt" transform="rotate(300)" d="M0 -7 C 13.8 -13.3, 15.0 -30.4, 0.6 -38.0 C -14.2 -31.2, -11.1 -11.4, 0 -7 Z"/><circle class="ct" cx="1" cy="0" r="8.5"/></svg>';
 let lastVisible=[];
 const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -405,7 +405,7 @@ function importBackup(file){
 function openBackup(){
   openSheet(`
     <div class="sheet-head"><h3 id="sheetTitle">Backup</h3><button class="x" type="button" data-close>Close</button></div>
-    <p class="backup-note">Your contacts live only on this phone. Save a backup now and then, to Files, iCloud Drive, Google Drive or by emailing it to yourself, so you can restore them on a new phone.</p>
+    <p class="backup-note">App version ${APP_VERSION}. Your contacts live only on this phone. Save a backup now and then, to Files, iCloud Drive, Google Drive or by emailing it to yourself, so you can restore them on a new phone.</p>
     <div class="stack">
       <button class="btn primary" type="button" id="b-export">Save backup file</button>
       <button class="btn" type="button" id="b-csv">Export as spreadsheet (CSV)</button>
@@ -498,7 +498,8 @@ function openStyle(){
       <div class="skins">${SKINS.map(k=>`<button class="skin" type="button" data-skin="${k.id}" aria-pressed="${k.id===skin}">${skinPreview(k)}<span class="nm">${esc(k.name)}</span></button>`).join("")}</div>
       <p class="sub">Title font</p>
       <div class="seg"><button type="button" data-font="serif" aria-pressed="${font!=="clean"}"><span class="f1">Elegant</span></button><button type="button" data-font="clean" aria-pressed="${font==="clean"}"><span class="f2">Clean</span></button></div>
-      <label class="switch" for="st-decor"><span class="lbl">Flower doodles<small>A small hand-drawn flower by each month and on empty screens.</small></span><input id="st-decor" type="checkbox" role="switch" ${decor?"checked":""}></label>`);
+      <label class="switch" for="st-decor"><span class="lbl">Flower doodles<small>A small hand-drawn flower by each month and on empty screens.</small></span><input id="st-decor" type="checkbox" role="switch" ${decor?"checked":""}></label>
+      <p class="backup-note" style="margin-top:16px">App version ${APP_VERSION}</p>`);
     sheet.querySelectorAll("[data-skin]").forEach(b=>b.onclick=()=>{setPref("skin",b.dataset.skin);applyStyle();draw();});
     sheet.querySelectorAll("[data-font]").forEach(b=>b.onclick=()=>{setPref("font",b.dataset.font);applyStyle();draw();});
     $("#st-decor").onchange=e=>{setPref("decor",e.target.checked?"1":"0");applyStyle();render();};
@@ -809,7 +810,7 @@ $("#addBtn").addEventListener("click",()=>openForm(null));
 
 loadLocal();render();initSync();
 async function checkUpdate(){
-  try{const t=await fetch("./index.html",{cache:"no-store"}).then(r=>r.text());const m=t.match(/APP_VERSION="(\d+)"/);
+  try{const t=await fetch("./index.html?check="+Date.now(),{cache:"no-store"}).then(r=>r.text());const m=t.match(/APP_VERSION="(\d+)"/);
     if(m&&m[1]!==APP_VERSION&&!document.querySelector(".update")){const d=document.createElement("div");d.className="update";
       d.innerHTML='<span>A new version of the app is ready.</span><button type="button">Update</button>';
       d.querySelector("button").onclick=async()=>{try{const r=await navigator.serviceWorker?.getRegistration();await r?.update();}catch(_){}location.reload();};
