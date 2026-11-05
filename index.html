@@ -56,6 +56,10 @@ h1{font:400 30px/1 var(--display);white-space:nowrap;margin:0;letter-spacing:.2p
 .av.lg{width:72px;height:72px;font-size:24px}
 .photo-pick{display:flex;align-items:center;gap:14px}
 .photo-pick .btns{display:flex;gap:8px;flex-wrap:wrap}
+.form-head{position:sticky;top:-18px;z-index:2;background:var(--surface);margin:-18px -18px 14px;padding:14px 18px 12px;border-bottom:1px solid var(--line)}
+.form-head h3{flex:1;min-width:0;text-align:center;font-size:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.form-head .save-top{flex:0 0 auto;width:auto;padding:9px 20px}
+.form-head .x{flex:0 0 auto}
 .vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
 #f-av{cursor:pointer}
 .update{position:fixed;left:16px;right:16px;top:calc(10px + env(safe-area-inset-top));z-index:30;max-width:608px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--accent);color:var(--accent-ink);padding:10px 14px;border-radius:12px;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.2)}
@@ -126,7 +130,7 @@ textarea{min-height:96px;resize:vertical}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
-const APP_VERSION="5";
+const APP_VERSION="6";
 const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
 let contacts=[]; let db=null; let col=null; let mode="local";
 const $=s=>document.querySelector(s);
@@ -409,7 +413,7 @@ function openForm(id){
   const ph=splitPhone(c.phone,c.phoneCountry);
   let photo=safePhoto(c.photo);
   openSheet(`
-    <div class="sheet-head"><h3 id="sheetTitle">${id?"Edit contact":"New contact"}</h3><button class="x" type="button" data-close>Cancel</button></div>
+    <div class="sheet-head form-head"><button class="x" type="button" data-close>Cancel</button><h3 id="sheetTitle">${id?"Edit contact":"New contact"}</h3><button class="btn primary save-top" type="submit" form="f">Save</button></div>
     <form id="f" novalidate>
       <div class="photo-pick"><span id="f-av">${avatar(c,"lg")}</span>
         <div class="btns"><button class="small-btn" type="button" id="f-photo-lbl">${safePhoto(c.photo)?"Change photo":"Add photo"}</button>
@@ -433,10 +437,7 @@ function openForm(id){
       </div>
       <label for="f-notes">Notes<textarea id="f-notes" name="notes" placeholder="What you talked about, follow-ups, mutual contacts…">${esc(c.notes)}</textarea></label>
       <div class="err" id="f-err"></div>
-      <div class="actions">
-        ${id?`<button class="btn danger" type="button" data-del="${esc(id)}">Delete</button>`:""}
-        <button class="btn primary" type="submit">Save</button>
-      </div>
+      ${id?`<div class="actions"><button class="btn danger" type="button" data-del="${esc(id)}">Delete contact</button></div>`:""}
     </form>`);
   const refreshAv=()=>{$("#f-av").innerHTML=avatar({name:$("#f-name").value||c.name,photo});$("#f-photo-rm").hidden=!photo;$("#f-photo-lbl").textContent=photo?"Change photo":"Add photo";};
   $("#f-photo").onchange=async e=>{const f=e.target.files[0];if(!f)return;
