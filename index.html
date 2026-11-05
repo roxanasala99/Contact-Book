@@ -14,11 +14,14 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script>try{var d=document.documentElement,sk=localStorage.getItem("contactbook.skin");if(sk&&sk!=="classic")d.setAttribute("data-skin",sk);if(localStorage.getItem("contactbook.decor")==="1")d.setAttribute("data-decor","");if(localStorage.getItem("contactbook.font")==="clean")d.setAttribute("data-font","clean");}catch(e){}</script>
 <style>
 /* Layout: one-column phone app. Sticky header with search, list grouped by month met, bottom sheet for add/edit/detail. */
 :root{
   --bg:#f3f5f8; --surface:#ffffff; --ink:#18202c; --muted:#5d6878; --line:#dde2ea;
   --accent:#1d4f91; --accent-ink:#ffffff; --chip:#eaf0f8; --danger:#b3261e; --flag:#c62828; --flag-bg:#fdecea;
+  --title:var(--ink); --on-bg:var(--ink); --on-bg-muted:var(--muted); --fab-bg:var(--accent); --fab-ink:var(--accent-ink);
+  --deco-fill:none; --deco-stroke:var(--accent); --deco-center:#f0b46a;
   --display:"Instrument Serif", Georgia, serif;
   --body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   color-scheme:light;
@@ -33,6 +36,19 @@
   --bg:#0f141b; --surface:#18202b; --ink:#e8edf4; --muted:#9aa6b6; --line:#2a3442;
   --accent:#7fb0f0; --accent-ink:#0b1420; --chip:#1f2c3d; --danger:#ff8a80; --flag:#ff6b6b; --flag-bg:#3a1d20; color-scheme:dark;
 }
+
+/* Style themes: colours from the Olive Martini / Chocolate / Sky Blue palette. They override light and dark mode. */
+:root[data-skin]{color-scheme:light}
+:root[data-skin="atelier"]{--bg:#F4EFE4;--surface:#FFFDF8;--ink:#3D1900;--muted:#7A6450;--line:#E4DACB;--accent:#3D1900;--accent-ink:#FBF6EA;--chip:#E3EAFF;--danger:#A3261B;--flag:#B3261E;--flag-bg:#F8E1DC;
+  --title:#3D1900;--on-bg:#3D1900;--on-bg-muted:#7A6450;--fab-bg:#A08D18;--fab-ink:#2A1400;--deco-fill:none;--deco-stroke:#3D1900;--deco-center:#CFDDFF}
+:root[data-skin="olive"]{--bg:#A08D18;--surface:#FBF6EA;--ink:#2E2405;--muted:#6B5F3A;--line:#E3DCC4;--accent:#3D1900;--accent-ink:#FBF6EA;--chip:#EFE7C8;--danger:#A3261B;--flag:#B3261E;--flag-bg:#F8E1DC;
+  --title:#FBF6EA;--on-bg:#2A1400;--on-bg-muted:#3D2A08;--fab-bg:#3D1900;--fab-ink:#FBF6EA;--deco-fill:none;--deco-stroke:#FBF6EA;--deco-center:#D9774B}
+:root[data-skin="chocolate"]{--bg:#3D1900;--surface:#FBF6EA;--ink:#2A1200;--muted:#6E5A4A;--line:#E6DCCD;--accent:#3D1900;--accent-ink:#FBF6EA;--chip:#E3EAFF;--danger:#A3261B;--flag:#B3261E;--flag-bg:#F8E1DC;
+  --title:#FBF6EA;--on-bg:#F1E6D6;--on-bg-muted:#CDB9A3;--fab-bg:#CFDDFF;--fab-ink:#3D1900;--deco-fill:#FBF6EA;--deco-stroke:#FBF6EA;--deco-center:#9DB3F0}
+:root[data-skin="sky"]{--bg:#CFDDFF;--surface:#FFFFFF;--ink:#1B1A2B;--muted:#55597A;--line:#D9E0F5;--accent:#3D1900;--accent-ink:#FBF6EA;--chip:#EEF2FF;--danger:#A3261B;--flag:#B3261E;--flag-bg:#FBE3DF;
+  --title:#1B1A2B;--on-bg:#1B1A2B;--on-bg-muted:#3F4566;--fab-bg:#3D1900;--fab-ink:#FBF6EA;--deco-fill:none;--deco-stroke:#1B1A2B;--deco-center:#F6EFC6}
+:root[data-font="clean"]{--display:"IBM Plex Sans", system-ui, sans-serif}
+:root[data-font="clean"] h1{font-weight:600;letter-spacing:-.5px;font-size:clamp(21px,6.4vw,27px)}
 *{box-sizing:border-box}
 [hidden]{display:none !important}
 html,body{height:100%;margin:0;overflow-x:hidden}
@@ -41,15 +57,16 @@ button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .app{max-width:640px;margin:0 auto;min-height:100%;padding:0 16px calc(96px + env(safe-area-inset-bottom))}
 header{position:sticky;top:0;z-index:5;background:var(--bg);padding:calc(14px + env(safe-area-inset-top)) 0 10px;display:grid;gap:10px}
-.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
-h1{font:400 30px/1 var(--display);white-space:nowrap;margin:0;letter-spacing:.2px}
+.top{min-width:0;display:flex;align-items:center;justify-content:space-between;gap:12px}
+h1{font:400 clamp(23px,7vw,30px)/1 var(--display);white-space:nowrap;margin:0;letter-spacing:.2px;color:var(--title);display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden}
 .count{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
 .search{display:flex;gap:8px}
 .search input{flex:1;min-width:0;padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
 .search select{flex:none;width:36%;padding:11px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
-.status{font-size:12px;color:var(--muted)}
+.status{font-size:12px;color:var(--on-bg-muted)}
+.status .link{color:var(--on-bg)}
 .group{margin-top:18px}
-.group h2{font:600 12px/1 var(--body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 8px 2px}
+.group h2{font:600 12px/1 var(--body);text-transform:uppercase;letter-spacing:.08em;color:var(--on-bg-muted);margin:0 0 8px 2px}
 .list{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden}
 .row{min-width:0;display:flex;gap:12px;align-items:center;padding:12px 14px;background:var(--surface);border:0;text-align:left;width:100%;cursor:pointer}
 .row:active{background:var(--chip)}
@@ -104,6 +121,30 @@ h1{font:400 30px/1 var(--display);white-space:nowrap;margin:0;letter-spacing:.2p
 .scope label{display:flex;align-items:center;gap:8px;color:var(--ink);font-size:14px;font-weight:400;cursor:pointer}
 .scope input{width:18px;height:18px;accent-color:var(--accent);margin:0}
 .sub{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:6px 0 4px}
+.flower{display:block}
+.flower .pt{fill:var(--deco-fill);stroke:var(--deco-stroke);stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round}
+.flower .ct{fill:var(--deco-center)}
+.g-flower{display:none;width:16px;height:16px;flex:none}
+:root[data-decor] .g-flower{display:inline-block}
+.group h2{display:flex;align-items:center;gap:6px}
+.empty .e-flower{display:none;width:96px;height:96px;margin:0 auto 10px}
+:root[data-decor] .empty .e-flower{display:block}
+.style-btn{width:36px;height:36px;padding:0;display:grid;place-items:center}
+.style-btn svg{width:24px;height:24px}
+.style-btn .pt{stroke:var(--accent);fill:none}
+.style-btn .ct{fill:var(--accent)}
+.skins{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:4px 0 16px}
+.skin{border:2px solid var(--line);border-radius:14px;padding:0;overflow:hidden;cursor:pointer;background:none;text-align:left}
+.skin[aria-pressed="true"]{border-color:var(--ink);box-shadow:0 0 0 2px var(--surface) inset}
+.skin .sw{height:86px;display:flex;align-items:center;justify-content:center;position:relative}
+.skin .sw .card{position:absolute;left:10px;right:10px;bottom:10px;height:16px;border-radius:5px}
+.skin .sw svg{width:46px;height:46px;margin-top:-18px}
+.skin .nm{display:block;padding:8px 10px;font-size:13px;font-weight:600;color:var(--ink);background:var(--surface)}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:4px 0 16px}
+.seg button{border:2px solid var(--line);background:var(--surface);border-radius:12px;padding:12px;cursor:pointer;color:var(--ink)}
+.seg button[aria-pressed="true"]{border-color:var(--ink)}
+.seg .f1{font:400 22px/1 "Instrument Serif",Georgia,serif}
+.seg .f2{font:600 19px/1 "IBM Plex Sans",system-ui,sans-serif}
 .gal-note{font-size:13px;color:var(--muted);margin:0 0 14px}
 .lb{position:fixed;inset:0;z-index:40;background:#000;display:flex;flex-direction:column;color:#fff}
 .lb-top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 12px 10px}
@@ -126,9 +167,9 @@ h1{font:400 30px/1 var(--display);white-space:nowrap;margin:0;letter-spacing:.2p
 .name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .role{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ev{flex:0 1 auto;max-width:34%;font-size:12px;padding:4px 8px;border-radius:999px;background:var(--chip);color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.empty{margin-top:40px;text-align:center;color:var(--muted)}
-.empty strong{display:block;font:400 26px var(--display);color:var(--ink);margin-bottom:6px}
-.fab{position:fixed;right:max(16px, calc(50% - 304px));bottom:calc(20px + env(safe-area-inset-bottom));z-index:6;border:0;border-radius:16px;padding:14px 20px;background:var(--accent);color:var(--accent-ink);font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.18);cursor:pointer}
+.empty{margin-top:40px;text-align:center;color:var(--on-bg-muted)}
+.empty strong{display:block;font:400 26px var(--display);color:var(--title);margin-bottom:6px}
+.fab{position:fixed;right:max(16px, calc(50% - 304px));bottom:calc(20px + env(safe-area-inset-bottom));z-index:6;border:0;border-radius:16px;padding:14px 20px;background:var(--fab-bg);color:var(--fab-ink);font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.18);cursor:pointer}
 /* sheet */
 .scrim{position:fixed;inset:0;background:rgba(10,15,25,.45);z-index:10;display:none}
 .scrim.open{display:block}
@@ -156,7 +197,10 @@ textarea{min-height:96px;resize:vertical}
 .fact a{color:var(--accent);word-break:break-all}
 .fact .val{word-break:break-word;white-space:pre-wrap}
 .menu-btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;color:var(--accent)}
-.top-r{display:flex;align-items:center;gap:10px}
+.top-r{display:flex;align-items:center;gap:6px;flex:none}
+.top-r .menu-btn{padding:6px 10px}
+.top-r .style-btn{padding:0;width:34px;height:32px}
+:root[data-skin] .status .warn{color:var(--on-bg);font-weight:600}
 .backup-note{font-size:13px;color:var(--muted);margin:0 0 14px}
 .stack{display:grid;gap:10px}
 .warn{color:var(--danger)}
@@ -167,7 +211,7 @@ textarea{min-height:96px;resize:vertical}
 <body>
 <div class="app">
   <header>
-    <div class="top"><h1>Contact Book</h1><div class="top-r"><button class="menu-btn" id="excelBtn" type="button">Excel</button><button class="menu-btn" id="backupBtn" type="button">Backup</button></div></div>
+    <div class="top"><h1>Contact Book</h1><div class="top-r"><button class="menu-btn style-btn" id="styleBtn" type="button" aria-label="Style and colours"><svg class="flower" viewBox="-50 -50 100 100" aria-hidden="true"><path class="pt" transform="rotate(0)" d="M0 -7 C 13.5 -14.0, 15.8 -32.0, 0.0 -40.0 C -15.0 -32.8, -12.8 -12.0, 0 -7 Z"/><path class="pt" transform="rotate(58)" d="M0 -7 C 15.6 -13.0, 14.6 -29.8, 1.8 -37.2 C -14.0 -30.5, -8.9 -11.2, 0 -7 Z"/><path class="pt" transform="rotate(122)" d="M0 -7 C 12.0 -14.6, 16.4 -33.3, -1.2 -41.6 C -15.6 -34.1, -15.3 -12.5, 0 -7 Z"/><path class="pt" transform="rotate(178)" d="M0 -7 C 15.0 -13.4, 15.1 -30.7, 1.2 -38.4 C -14.4 -31.5, -10.2 -11.5, 0 -7 Z"/><path class="pt" transform="rotate(238)" d="M0 -7 C 10.8 -14.3, 16.1 -32.6, -1.8 -40.8 C -15.3 -33.5, -16.0 -12.2, 0 -7 Z"/><path class="pt" transform="rotate(300)" d="M0 -7 C 13.8 -13.3, 15.0 -30.4, 0.6 -38.0 C -14.2 -31.2, -11.1 -11.4, 0 -7 Z"/><circle class="ct" cx="1" cy="0" r="8.5"/></svg></button><button class="menu-btn" id="excelBtn" type="button">Excel</button><button class="menu-btn" id="backupBtn" type="button">Backup</button></div></div>
     <div class="search">
       <input id="q" type="search" placeholder="Search name, title, notes…" aria-label="Search contacts">
       <select id="evFilter" aria-label="Filter by event"><option value="">All events</option></select>
@@ -184,7 +228,8 @@ textarea{min-height:96px;resize:vertical}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
-const APP_VERSION="13";
+const APP_VERSION="16";
+const FLOWER_SVG='<svg class="flower" viewBox="-50 -50 100 100" aria-hidden="true"><path class="pt" transform="rotate(0)" d="M0 -7 C 13.5 -14.0, 15.8 -32.0, 0.0 -40.0 C -15.0 -32.8, -12.8 -12.0, 0 -7 Z"/><path class="pt" transform="rotate(58)" d="M0 -7 C 15.6 -13.0, 14.6 -29.8, 1.8 -37.2 C -14.0 -30.5, -8.9 -11.2, 0 -7 Z"/><path class="pt" transform="rotate(122)" d="M0 -7 C 12.0 -14.6, 16.4 -33.3, -1.2 -41.6 C -15.6 -34.1, -15.3 -12.5, 0 -7 Z"/><path class="pt" transform="rotate(178)" d="M0 -7 C 15.0 -13.4, 15.1 -30.7, 1.2 -38.4 C -14.4 -31.5, -10.2 -11.5, 0 -7 Z"/><path class="pt" transform="rotate(238)" d="M0 -7 C 10.8 -14.3, 16.1 -32.6, -1.8 -40.8 C -15.3 -33.5, -16.0 -12.2, 0 -7 Z"/><path class="pt" transform="rotate(300)" d="M0 -7 C 13.8 -13.3, 15.0 -30.4, 0.6 -38.0 C -14.2 -31.2, -11.1 -11.4, 0 -7 Z"/><circle class="ct" cx="1" cy="0" r="8.5"/></svg>';
 let lastVisible=[];
 const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
 let contacts=[]; let db=null; let col=null; let mode="local";
@@ -426,6 +471,44 @@ function openExcel(){
   };
 }
 $("#excelBtn").addEventListener("click",openExcel);
+/* ---------- style & colours ---------- */
+const SKINS=[
+  {id:"classic",name:"Classic blue",bg:"#f3f5f8",card:"#ffffff",stroke:"#1d4f91",fill:"none",center:"#f0b46a",meta:"#1d4f91"},
+  {id:"atelier",name:"Atelier cream",bg:"#F4EFE4",card:"#FFFDF8",stroke:"#3D1900",fill:"none",center:"#CFDDFF",meta:"#F4EFE4"},
+  {id:"olive",name:"Olive Martini",bg:"#A08D18",card:"#FBF6EA",stroke:"#FBF6EA",fill:"none",center:"#D9774B",meta:"#A08D18"},
+  {id:"chocolate",name:"Chocolate",bg:"#3D1900",card:"#FBF6EA",stroke:"#FBF6EA",fill:"#FBF6EA",center:"#9DB3F0",meta:"#3D1900"},
+  {id:"sky",name:"Sky Blue",bg:"#CFDDFF",card:"#FFFFFF",stroke:"#1B1A2B",fill:"none",center:"#F6EFC6",meta:"#CFDDFF"}];
+function getPref(k,d){try{return localStorage.getItem("contactbook."+k)||d}catch(e){return d}}
+function setPref(k,v){try{localStorage.setItem("contactbook."+k,v)}catch(e){}}
+function applyStyle(){
+  const root=document.documentElement,skin=getPref("skin","classic");
+  if(skin==="classic")root.removeAttribute("data-skin");else root.setAttribute("data-skin",skin);
+  if(getPref("decor","0")==="1")root.setAttribute("data-decor","");else root.removeAttribute("data-decor");
+  if(getPref("font","serif")==="clean")root.setAttribute("data-font","clean");else root.removeAttribute("data-font");
+  const sk=SKINS.find(x=>x.id===skin)||SKINS[0];const m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",sk.meta);
+}
+function skinPreview(k){
+  return `<span class="sw" style="background:${k.bg}"><span style="--deco-stroke:${k.stroke};--deco-fill:${k.fill};--deco-center:${k.center};display:contents">${FLOWER_SVG}</span><span class="card" style="background:${k.card}"></span></span>`;
+}
+function openStyle(){
+  const draw=()=>{
+    const skin=getPref("skin","classic"),decor=getPref("decor","0")==="1",font=getPref("font","serif");
+    openSheet(`<div class="sheet-head"><h3 id="sheetTitle">Style &amp; colours</h3><button class="x" type="button" data-close>Done</button></div>
+      <p class="sub">Colours</p>
+      <div class="skins">${SKINS.map(k=>`<button class="skin" type="button" data-skin="${k.id}" aria-pressed="${k.id===skin}">${skinPreview(k)}<span class="nm">${esc(k.name)}</span></button>`).join("")}</div>
+      <p class="sub">Title font</p>
+      <div class="seg"><button type="button" data-font="serif" aria-pressed="${font!=="clean"}"><span class="f1">Elegant</span></button><button type="button" data-font="clean" aria-pressed="${font==="clean"}"><span class="f2">Clean</span></button></div>
+      <label class="switch" for="st-decor"><span class="lbl">Flower doodles<small>A small hand-drawn flower by each month and on empty screens.</small></span><input id="st-decor" type="checkbox" role="switch" ${decor?"checked":""}></label>`);
+    sheet.querySelectorAll("[data-skin]").forEach(b=>b.onclick=()=>{setPref("skin",b.dataset.skin);applyStyle();draw();});
+    sheet.querySelectorAll("[data-font]").forEach(b=>b.onclick=()=>{setPref("font",b.dataset.font);applyStyle();draw();});
+    $("#st-decor").onchange=e=>{setPref("decor",e.target.checked?"1":"0");applyStyle();render();};
+  };
+  draw();
+}
+$("#styleBtn").addEventListener("click",openStyle);
+applyStyle();
+
+
 
 
 
@@ -589,11 +672,11 @@ function render(){
   }).sort((a,b)=>metKey(b)-metKey(a)||(a.name||"").localeCompare(b.name||""));
   lastVisible=list;
   const main=$("#main");
-  if(!contacts.length){main.innerHTML=`<div class="empty"><strong>No contacts yet</strong>Tap “Add contact” after your next event.</div>`;return;}
+  if(!contacts.length){main.innerHTML=`<div class="empty"><div class="e-flower">${FLOWER_SVG}</div><strong>No contacts yet</strong>Tap “Add contact” after your next event.</div>`;return;}
   if(!list.length){main.innerHTML=`<div class="empty"><strong>No matches</strong>Try a different search or event.</div>`;return;}
   const groups=[];let last=null;
   for(const c of list){const k=metLabel(c);if(k!==last){groups.push({k,items:[]});last=k;}groups[groups.length-1].items.push(c);}
-  main.innerHTML=groups.map(g=>`<div class="group"><h2>Met ${esc(g.k==="Date not set"?"· date not set":g.k)}</h2><div class="list">${g.items.map(c=>`
+  main.innerHTML=groups.map(g=>`<div class="group"><h2><span class="g-flower">${FLOWER_SVG}</span>Met ${esc(g.k==="Date not set"?"· date not set":g.k)}</h2><div class="list">${g.items.map(c=>`
     <button class="row" type="button" data-id="${esc(c.id)}">
       ${avatar(c)}
       <span class="who"><div class="name${c.health?" flag":""}">${esc(c.name)}</div><div class="role">${esc([c.title,c.company].filter(Boolean).join(" · ")||"No title")}</div></span>
