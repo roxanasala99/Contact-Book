@@ -1,5 +1,5 @@
 // Offline support: caches the app shell, then fonts as they load.
-const CACHE = "contact-book-v6";
+const CACHE = "contact-book-v7";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png"];
 

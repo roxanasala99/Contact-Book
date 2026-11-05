@@ -57,9 +57,24 @@ h1{font:400 30px/1 var(--display);white-space:nowrap;margin:0;letter-spacing:.2p
 .photo-pick{display:flex;align-items:center;gap:14px}
 .photo-pick .btns{display:flex;gap:8px;flex-wrap:wrap}
 .form-head{position:sticky;top:-18px;z-index:2;background:var(--surface);margin:-18px -18px 14px;padding:14px 18px 12px;border-bottom:1px solid var(--line)}
-.form-head h3{flex:1;min-width:0;text-align:center;font-size:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.form-head h3{flex:1;min-width:0;text-align:left;font-size:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .form-head .save-top{flex:0 0 auto;width:auto;padding:9px 20px}
 .form-head .x{flex:0 0 auto}
+.gal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:4px 0 10px}
+.gal-head span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.gal{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}
+.gal button{border:0;padding:0;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--chip);cursor:pointer}
+.gal img{width:100%;height:100%;object-fit:cover;display:block}
+.gal-note{font-size:13px;color:var(--muted);margin:0 0 14px}
+.lb{position:fixed;inset:0;z-index:40;background:#000;display:flex;flex-direction:column;color:#fff}
+.lb-top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 12px 10px}
+.lb-top button,.lb-nav{border:0;border-radius:10px;padding:8px 12px;background:rgba(255,255,255,.14);color:#fff;font-weight:600;cursor:pointer}
+.lb-img{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative}
+.lb-img img{max-width:100%;max-height:100%;object-fit:contain}
+.lb-nav{position:absolute;top:50%;transform:translateY(-50%);font-size:22px;padding:10px 14px}
+.lb-nav.prev{left:8px}.lb-nav.next{right:8px}
+.lb-cap{padding:10px 12px calc(14px + env(safe-area-inset-bottom))}
+.lb-cap input{width:100%;padding:11px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff}
 .vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
 #f-av{cursor:pointer}
 .update{position:fixed;left:16px;right:16px;top:calc(10px + env(safe-area-inset-top));z-index:30;max-width:608px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--accent);color:var(--accent-ink);padding:10px 14px;border-radius:12px;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.2)}
@@ -130,7 +145,7 @@ textarea{min-height:96px;resize:vertical}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
-const APP_VERSION="6";
+const APP_VERSION="7";
 const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
 let contacts=[]; let db=null; let col=null; let mode="local";
 const $=s=>document.querySelector(s);
@@ -160,7 +175,7 @@ async function saveContact(c){
   if(!saveLocal())throw new Error("storage");
   markPending(c.id,"upsert");render();flush();
 }
-async function deleteContact(id){contacts=contacts.filter(c=>c.id!==id);saveLocal();markPending(id,"delete");render();flush();}
+async function deleteContact(id){const old=contacts.find(c=>c.id===id);if(old)removeAllGallery(old);contacts=contacts.filter(c=>c.id!==id);saveLocal();markPending(id,"delete");render();flush();}
 let flushing=null, flushAgain=false;
 function flush(){
   if(!sb||!session)return Promise.resolve();
@@ -348,6 +363,82 @@ function resizeImage(file,size=192){
     img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error("image"));};img.src=url;});
 }
 
+/* ---------- event photos & slides ---------- */
+const BUCKET="contact-photos"; const urlCache={};
+function cleanGallery(c){const uid=session&&session.user.id;return (Array.isArray(c.gallery)?c.gallery:[]).filter(g=>g&&typeof g.p==="string"&&/^[\w-]+\/[\w-]+\/[\w-]+$/.test(g.p)&&(!uid||g.p.startsWith(uid+"/")));}
+async function signedUrls(paths){
+  const need=paths.filter(p=>!urlCache[p]||urlCache[p].exp<Date.now()+120000);
+  if(need.length){const {data,error}=await sb.storage.from(BUCKET).createSignedUrls(need,3600);
+    if(!error)data.forEach(d=>{if(d.signedUrl)urlCache[d.path]={url:d.signedUrl,exp:Date.now()+3600e3};});}
+  return paths.map(p=>urlCache[p]?urlCache[p].url:"");
+}
+function resizeToBlob(file,max,quality){
+  return new Promise((resolve,reject)=>{const url=URL.createObjectURL(file);const img=new Image();
+    img.onload=()=>{const k=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));const cv=document.createElement("canvas");
+      cv.width=Math.round(img.naturalWidth*k);cv.height=Math.round(img.naturalHeight*k);cv.getContext("2d").drawImage(img,0,0,cv.width,cv.height);
+      URL.revokeObjectURL(url);cv.toBlob(b=>b?resolve(b):reject(new Error("image")),"image/jpeg",quality);};
+    img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error("image"));};img.src=url;});
+}
+async function addGalleryPhotos(id,files,onProgress){
+  const c=contacts.find(x=>x.id===id);if(!c)return;
+  const added=[];let i=0;
+  for(const f of files){i++;onProgress&&onProgress(i,files.length);
+    const key=`${session.user.id}/${c.id.replace(/[^\w-]/g,"")}/${Date.now().toString(36)}${Math.random().toString(36).slice(2,7)}`;
+    const [full,thumb]=await Promise.all([resizeToBlob(f,1800,.85),resizeToBlob(f,420,.75)]);
+    let r=await sb.storage.from(BUCKET).upload(key+".jpg",full,{contentType:"image/jpeg"});if(r.error)throw r.error;
+    r=await sb.storage.from(BUCKET).upload(key+"_t.jpg",thumb,{contentType:"image/jpeg"});if(r.error)throw r.error;
+    added.push({p:key,cap:"",at:Date.now()});}
+  const fresh=contacts.find(x=>x.id===id);
+  const next={...fresh,gallery:cleanGallery(fresh).concat(added),updatedAt:Date.now()};
+  await saveContact(next);await flush();
+}
+async function removeGalleryPhoto(id,p){
+  const c=contacts.find(x=>x.id===id);if(!c)return;
+  await sb.storage.from(BUCKET).remove([p+".jpg",p+"_t.jpg"]);
+  await saveContact({...c,gallery:cleanGallery(c).filter(g=>g.p!==p),updatedAt:Date.now()});await flush();
+}
+async function removeAllGallery(c){const g=cleanGallery(c);if(sb&&session&&g.length){try{await sb.storage.from(BUCKET).remove(g.flatMap(x=>[x.p+".jpg",x.p+"_t.jpg"]));}catch(_){}}}
+async function fillGallery(id){
+  const box=$("#gal"),head=$("#gal-status");if(!box)return;
+  const c=contacts.find(x=>x.id===id);if(!c)return;
+  if(!sb||!session){box.innerHTML="";$("#gal-note").textContent="Sign in to sync to add photos and slides from the event.";$("#g-add").hidden=true;return;}
+  const g=cleanGallery(c);
+  if(!g.length){box.innerHTML="";$("#gal-note").textContent="No photos yet. Add photos from the event or pictures of their slides.";return;}
+  $("#gal-note").textContent="";
+  box.innerHTML=g.map((x,i)=>`<button type="button" data-gi="${i}" aria-label="Open photo ${i+1}"><img alt="" data-p="${x.p}_t.jpg"></button>`).join("");
+  const urls=await signedUrls(g.map(x=>x.p+"_t.jpg"));
+  box.querySelectorAll("img").forEach((im,i)=>{if(urls[i])im.src=urls[i];});
+}
+function openLightbox(id,start){
+  const c=contacts.find(x=>x.id===id);let g=cleanGallery(c);if(!g.length)return;let i=start;
+  const lb=document.createElement("div");lb.className="lb";lb.setAttribute("role","dialog");lb.setAttribute("aria-label","Photo viewer");
+  lb.innerHTML=`<div class="lb-top"><button type="button" data-x>Close</button><span id="lb-n"></span><button type="button" data-rm>Delete</button></div>
+    <div class="lb-img"><img id="lb-im" alt=""><button class="lb-nav prev" type="button" aria-label="Previous">‹</button><button class="lb-nav next" type="button" aria-label="Next">›</button></div>
+    <div class="lb-cap"><input id="lb-cap" placeholder="Add a caption, e.g. their slide on river restoration" aria-label="Caption"></div>`;
+  document.body.appendChild(lb);
+  const show=async()=>{const x=g[i];lb.querySelector("#lb-n").textContent=`${i+1} / ${g.length}`;
+    lb.querySelector("#lb-cap").value=x.cap||"";const rm=lb.querySelector("[data-rm]");rm.textContent="Delete";rm.dataset.confirm="";
+    lb.querySelector(".prev").hidden=i===0;lb.querySelector(".next").hidden=i===g.length-1;
+    const im=lb.querySelector("#lb-im");im.removeAttribute("src");const [u]=await signedUrls([x.p+".jpg"]);if(g[i]===x&&u)im.src=u;};
+  const saveCap=async()=>{const v=lb.querySelector("#lb-cap").value.trim();if((g[i].cap||"")===v)return;
+    const cur=contacts.find(x=>x.id===id);const gg=cleanGallery(cur).map(x=>x.p===g[i].p?{...x,cap:v}:x);g=gg;
+    await saveContact({...cur,gallery:gg,updatedAt:Date.now()});};
+  const close=async()=>{await saveCap();lb.remove();document.removeEventListener("keydown",key,true);fillGallery(id);};
+  const go=async d=>{await saveCap();i=Math.max(0,Math.min(g.length-1,i+d));show();};
+  const key=e=>{if(e.key==="Escape"){e.stopPropagation();close();}if(e.key==="ArrowLeft")go(-1);if(e.key==="ArrowRight")go(1);};
+  document.addEventListener("keydown",key,true);
+  lb.querySelector("[data-x]").onclick=close;lb.querySelector(".prev").onclick=()=>go(-1);lb.querySelector(".next").onclick=()=>go(1);
+  lb.querySelector("#lb-cap").addEventListener("change",saveCap);
+  lb.querySelector("[data-rm]").onclick=async e=>{const b=e.currentTarget;if(b.dataset.confirm!=="1"){b.dataset.confirm="1";b.textContent="Tap again to delete";return;}
+    b.textContent="Deleting…";try{await removeGalleryPhoto(id,g[i].p);g=cleanGallery(contacts.find(x=>x.id===id));
+      if(!g.length){lb.remove();document.removeEventListener("keydown",key,true);fillGallery(id);return;}i=Math.min(i,g.length-1);show();}
+    catch(_){b.textContent="Couldn't delete. Try again";b.dataset.confirm="";}};
+  let sx=null;const area=lb.querySelector(".lb-img");
+  area.addEventListener("touchstart",e=>{sx=e.touches[0].clientX;},{passive:true});
+  area.addEventListener("touchend",e=>{if(sx===null)return;const dx=e.changedTouches[0].clientX-sx;sx=null;if(Math.abs(dx)>50)go(dx<0?1:-1);});
+  show();
+}
+
 /* ---------- list ---------- */
 function render(){
   updateStatus();
@@ -400,10 +491,21 @@ function openDetail(id){
       <div class="fact"><span>When</span><div class="val">${esc(metLabel(c))}</div></div>
       <div class="fact"><span>Notes</span><div class="val">${linkify(c.notes)||"—"}</div></div>
     </div>
+    <div class="gal-head"><span>Photos &amp; slides</span><button class="small-btn" type="button" id="g-add">Add photos</button></div>
+    <input id="g-file" class="vh" type="file" accept="image/*" multiple>
+    <p class="gal-note" id="gal-note"></p><div class="gal" id="gal"></div>
     <div class="actions">
       ${c.phone?`<button class="btn" type="button" data-copy="${esc(c.phone)}">Copy number</button>`:""}
       <button class="btn primary" type="button" data-edit="${esc(c.id)}">Edit</button>
     </div>`);
+  fillGallery(c.id);
+  $("#g-add").onclick=()=>$("#g-file").click();
+  $("#gal").onclick=e=>{const b=e.target.closest("[data-gi]");if(b)openLightbox(c.id,+b.dataset.gi);};
+  $("#g-file").onchange=async e=>{const files=[...e.target.files];e.target.value="";if(!files.length)return;
+    const btn=$("#g-add");btn.disabled=true;
+    try{await addGalleryPhotos(c.id,files,(n,t)=>{btn.textContent=`Uploading ${n} of ${t}…`;});toast(files.length===1?"Photo added":`${files.length} photos added`);}
+    catch(err){toast("Upload failed. Check your connection and try again.");}
+    btn.disabled=false;btn.textContent="Add photos";fillGallery(c.id);};
 }
 function openForm(id){
   const c=contacts.find(x=>x.id===id)||{};
@@ -413,7 +515,7 @@ function openForm(id){
   const ph=splitPhone(c.phone,c.phoneCountry);
   let photo=safePhoto(c.photo);
   openSheet(`
-    <div class="sheet-head form-head"><button class="x" type="button" data-close>Cancel</button><h3 id="sheetTitle">${id?"Edit contact":"New contact"}</h3><button class="btn primary save-top" type="submit" form="f">Save</button></div>
+    <div class="sheet-head form-head"><h3 id="sheetTitle">${id?"Edit contact":"New contact"}</h3><button class="btn primary save-top" type="submit" form="f">Save</button></div>
     <form id="f" novalidate>
       <div class="photo-pick"><span id="f-av">${avatar(c,"lg")}</span>
         <div class="btns"><button class="small-btn" type="button" id="f-photo-lbl">${safePhoto(c.photo)?"Change photo":"Add photo"}</button>
@@ -437,7 +539,7 @@ function openForm(id){
       </div>
       <label for="f-notes">Notes<textarea id="f-notes" name="notes" placeholder="What you talked about, follow-ups, mutual contacts…">${esc(c.notes)}</textarea></label>
       <div class="err" id="f-err"></div>
-      ${id?`<div class="actions"><button class="btn danger" type="button" data-del="${esc(id)}">Delete contact</button></div>`:""}
+      <div class="actions">${id?`<button class="btn danger" type="button" data-del="${esc(id)}">Delete contact</button>`:""}<button class="btn" type="button" data-close>Discard changes</button></div>
     </form>`);
   const refreshAv=()=>{$("#f-av").innerHTML=avatar({name:$("#f-name").value||c.name,photo});$("#f-photo-rm").hidden=!photo;$("#f-photo-lbl").textContent=photo?"Change photo":"Add photo";};
   $("#f-photo").onchange=async e=>{const f=e.target.files[0];if(!f)return;
@@ -450,7 +552,7 @@ function openForm(id){
     const fd=new FormData(e.target);const o=Object.fromEntries([...fd].map(([k,v])=>[k,String(v).trim()]));
     if(!o.name){$("#f-err").textContent="Add a name to save this contact.";$("#f-name").focus();return;}
     const rec={id:id||("c"+Date.now().toString(36)+Math.random().toString(36).slice(2,6)),name:o.name,title:o.title,company:o.company,linkedin:o.linkedin,phone:(()=>{const n=o.phone.replace(/^\+/,"");if(!o.phone)return "";if(o.phone.startsWith("+")||!o.phoneCountry)return o.phone;const cc=COUNTRIES.find(x=>x[0]===o.phoneCountry);return "+"+cc[2]+" "+(["IT","SM"].includes(cc[0])?n:n.replace(/^0(?=\d)/,""));})(),
-      phoneCountry:o.phone?o.phoneCountry:"",photo,email:o.email,event:o.event,
+      phoneCountry:o.phone?o.phoneCountry:"",photo,gallery:c.gallery||[],email:o.email,event:o.event,
       metMonth:o.metMonth?+o.metMonth:null,metYear:o.metYear?+o.metYear:null,notes:o.notes,updatedAt:Date.now(),createdAt:c.createdAt||Date.now()};
     if(o.phoneCountry){try{localStorage.setItem("contactbook.lastCountry",o.phoneCountry)}catch(_){}}
     try{await saveContact(rec);closeSheet();toast(id?"Contact updated":"Contact saved");}
