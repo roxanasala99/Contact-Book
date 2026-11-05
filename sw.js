@@ -1,5 +1,5 @@
 // Offline support: caches the app shell, then fonts as they load.
-const CACHE = "contact-book-v2";
+const CACHE = "contact-book-v3";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png"];
 
@@ -28,7 +28,7 @@ self.addEventListener("fetch", e => {
   }
 
   // Same-origin files and Google Fonts: cache first.
-  if (url.origin === location.origin || /fonts\.(googleapis|gstatic)\.com$/.test(url.hostname)) {
+  if (url.origin === location.origin || /(fonts\.(googleapis|gstatic)\.com|cdn\.jsdelivr\.net)$/.test(url.hostname)) {
     e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => {
       if (res.ok || res.type === "opaque") { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
       return res;
