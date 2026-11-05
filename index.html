@@ -121,6 +121,7 @@ const initials=n=>(n||"?").trim().split(/\s+/).slice(0,2).map(w=>w[0]).join("").
 const metLabel=c=>c.metYear?((c.metMonth?MONTHS[c.metMonth-1]+" ":"")+c.metYear):"Date not set";
 const metKey=c=>(c.metYear||0)*100+(c.metMonth||0);
 function linkedinUrl(v){v=(v||"").trim();if(!v)return"";if(/^https?:\/\//i.test(v))return v;if(/linkedin\.com/i.test(v))return"https://"+v.replace(/^\/+/,"");return"https://www.linkedin.com/in/"+v.replace(/^@/,"");}
+function linkify(t){return esc(t||"").replace(/(https?:\/\/[^\s<]+|\b(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|cl|gal|es|it|org|net|io|sg|eu)(?:\/[^\s<]*)?)/gi,m=>`<a href="${/^https?:/i.test(m)?m:"https://"+m}" target="_blank" rel="noopener">${m}</a>`);}
 function toast(t){const el=$("#toast");el.textContent=t;el.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>el.style.display="none",2200);}
 
 /* ---------- storage (on this phone) ---------- */
@@ -161,7 +162,7 @@ async function exportBackup(){
   if(ok){try{localStorage.setItem(BKEY,String(Date.now()))}catch(e){}updateStatus();toast("Backup saved");closeSheet();}
 }
 async function exportCSV(){
-  const cols=["name","title","company","linkedin","phone","event","metMonth","metYear","notes"];
+  const cols=["name","title","company","linkedin","phone","email","event","metMonth","metYear","notes"];
   const q=v=>{v=v==null?"":String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
   const csv=[cols.join(",")].concat(contacts.map(c=>cols.map(k=>q(k==="linkedin"?linkedinUrl(c[k]):c[k])).join(","))).join("\n");
   const ok=await deliverFile(`contact-book-${stamp()}.csv`,"﻿"+csv,"text/csv");
@@ -214,7 +215,7 @@ function render(){
   let list=contacts.filter(c=>{
     if(sel.value&&(c.event||"").trim()!==sel.value)return false;
     if(!q)return true;
-    return [c.name,c.title,c.company,c.event,c.notes,c.phone].join(" ").toLowerCase().includes(q);
+    return [c.name,c.title,c.company,c.event,c.notes,c.phone,c.email].join(" ").toLowerCase().includes(q);
   }).sort((a,b)=>metKey(b)-metKey(a)||(a.name||"").localeCompare(b.name||""));
   
   const main=$("#main");
@@ -250,9 +251,10 @@ function openDetail(id){
     <div class="facts">
       <div class="fact"><span>LinkedIn</span>${li?`<a href="${esc(li)}" target="_blank" rel="noopener">${esc(li.replace(/^https?:\/\/(www\.)?/,""))}</a>`:'<div class="val">—</div>'}</div>
       <div class="fact"><span>Phone</span>${c.phone?`<a href="tel:${esc(tel)}">${esc(c.phone)}</a>`:'<div class="val">—</div>'}</div>
+      <div class="fact"><span>Email</span>${c.email?`<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`:'<div class="val">—</div>'}</div>
       <div class="fact"><span>Met at</span><div class="val">${esc(c.event||"—")}</div></div>
       <div class="fact"><span>When</span><div class="val">${esc(metLabel(c))}</div></div>
-      <div class="fact"><span>Notes</span><div class="val">${esc(c.notes||"—")}</div></div>
+      <div class="fact"><span>Notes</span><div class="val">${linkify(c.notes)||"—"}</div></div>
     </div>
     <div class="actions">
       ${c.phone?`<button class="btn" type="button" data-copy="${esc(c.phone)}">Copy number</button>`:""}
@@ -274,6 +276,7 @@ function openForm(id){
       </div>
       <label for="f-li">LinkedIn<input id="f-li" name="linkedin" inputmode="url" autocapitalize="off" value="${esc(c.linkedin)}" placeholder="linkedin.com/in/username"></label>
       <label for="f-phone">Phone<input id="f-phone" name="phone" type="tel" value="${esc(c.phone)}" placeholder="+39 333 123 4567"></label>
+      <label for="f-email">Email<input id="f-email" name="email" type="email" autocapitalize="off" value="${esc(c.email)}" placeholder="name@company.com"></label>
       <label for="f-event">Event or conference<input id="f-event" name="event" list="evlist" value="${esc(c.event)}" placeholder="Web Summit Lisbon"></label>
       <datalist id="evlist">${events.map(e=>`<option value="${esc(e)}"></option>`).join("")}</datalist>
       <div class="two">
@@ -291,7 +294,7 @@ function openForm(id){
     e.preventDefault();
     const fd=new FormData(e.target);const o=Object.fromEntries([...fd].map(([k,v])=>[k,String(v).trim()]));
     if(!o.name){$("#f-err").textContent="Add a name to save this contact.";$("#f-name").focus();return;}
-    const rec={id:id||("c"+Date.now().toString(36)+Math.random().toString(36).slice(2,6)),name:o.name,title:o.title,company:o.company,linkedin:o.linkedin,phone:o.phone,event:o.event,
+    const rec={id:id||("c"+Date.now().toString(36)+Math.random().toString(36).slice(2,6)),name:o.name,title:o.title,company:o.company,linkedin:o.linkedin,phone:o.phone,email:o.email,event:o.event,
       metMonth:o.metMonth?+o.metMonth:null,metYear:o.metYear?+o.metYear:null,notes:o.notes,updatedAt:Date.now(),createdAt:c.createdAt||Date.now()};
     try{await saveContact(rec);closeSheet();toast(id?"Contact updated":"Contact saved");}
     catch(err){$("#f-err").textContent="Couldn't save. Check your connection and try again.";}
