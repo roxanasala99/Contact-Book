@@ -146,7 +146,8 @@ h1{font:400 clamp(23px,7vw,30px)/1 var(--display);white-space:nowrap;margin:0;le
 .seg button[aria-pressed="true"]{border-color:var(--ink)}
 .seg .f1{font:400 22px/1 "Instrument Serif",Georgia,serif}
 .seg .f2{font:600 19px/1 "IBM Plex Sans",system-ui,sans-serif}
-.gear{position:fixed;left:max(16px, calc(50% - 304px));bottom:calc(20px + env(safe-area-inset-bottom));z-index:6;width:52px;height:52px;border-radius:16px;border:1px solid var(--line);background:var(--surface);color:var(--ink);display:grid;place-items:center;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.14)}
+.gear{position:fixed;left:max(16px, calc(50% - 304px));bottom:calc(20px + env(safe-area-inset-bottom));z-index:6;width:48px;height:48px;padding:0;border:0;background:none;color:var(--on-bg);display:grid;place-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.gear svg{width:30px;height:30px}
 .set-list{display:grid;gap:10px}
 .ver{display:flex;justify-content:space-between;gap:10px;font-size:14px;color:var(--ink);padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--field);margin:0 0 10px}
 .ver b{font-weight:600}
@@ -237,7 +238,7 @@ textarea{min-height:96px;resize:vertical}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
-const APP_VERSION="22";
+const APP_VERSION="23";
 const FLOWER_SVG='<svg class="flower" viewBox="-50 -50 100 100" aria-hidden="true"><path class="pt" transform="rotate(0)" d="M0 -7 C 13.5 -14.0, 15.8 -32.0, 0.0 -40.0 C -15.0 -32.8, -12.8 -12.0, 0 -7 Z"/><path class="pt" transform="rotate(58)" d="M0 -7 C 15.6 -13.0, 14.6 -29.8, 1.8 -37.2 C -14.0 -30.5, -8.9 -11.2, 0 -7 Z"/><path class="pt" transform="rotate(122)" d="M0 -7 C 12.0 -14.6, 16.4 -33.3, -1.2 -41.6 C -15.6 -34.1, -15.3 -12.5, 0 -7 Z"/><path class="pt" transform="rotate(178)" d="M0 -7 C 15.0 -13.4, 15.1 -30.7, 1.2 -38.4 C -14.4 -31.5, -10.2 -11.5, 0 -7 Z"/><path class="pt" transform="rotate(238)" d="M0 -7 C 10.8 -14.3, 16.1 -32.6, -1.8 -40.8 C -15.3 -33.5, -16.0 -12.2, 0 -7 Z"/><path class="pt" transform="rotate(300)" d="M0 -7 C 13.8 -13.3, 15.0 -30.4, 0.6 -38.0 C -14.2 -31.2, -11.1 -11.4, 0 -7 Z"/><circle class="ct" cx="1" cy="0" r="8.5"/></svg>';
 let lastVisible=[];
 const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
