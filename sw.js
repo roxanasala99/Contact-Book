@@ -1,5 +1,5 @@
 // Offline support: caches the app shell, then fonts as they load.
-const CACHE = "contact-book-v7";
+const CACHE = "contact-book-v8";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png"];
 
@@ -20,7 +20,7 @@ self.addEventListener("fetch", e => {
 
   // App pages: try the network first so updates arrive, fall back to cache offline.
   if (req.mode === "navigate") {
-    e.respondWith(fetch(req).then(res => {
+    e.respondWith(fetch(req.url, {cache: "no-store", credentials: "same-origin"}).then(res => {
       const copy = res.clone(); caches.open(CACHE).then(c => c.put("./index.html", copy));
       return res;
     }).catch(() => caches.match("./index.html")));

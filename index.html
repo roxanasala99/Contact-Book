@@ -145,7 +145,7 @@ textarea{min-height:96px;resize:vertical}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
-const APP_VERSION="7";
+const APP_VERSION="8";
 const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
 let contacts=[]; let db=null; let col=null; let mode="local";
 const $=s=>document.querySelector(s);
@@ -582,7 +582,7 @@ async function checkUpdate(){
 checkUpdate();document.addEventListener("visibilitychange",()=>{if(!document.hidden)checkUpdate();});
 // Ask the browser not to clear our data when space runs low.
 if(navigator.storage&&navigator.storage.persist){navigator.storage.persist().catch(()=>{});}
-if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));}
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>r.update()).catch(()=>{}));}
 </script>
 </body>
 </html>
