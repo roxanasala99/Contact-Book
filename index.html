@@ -96,6 +96,14 @@ h1{font:400 30px/1 var(--display);white-space:nowrap;margin:0;letter-spacing:.2p
 .d-head h3{flex:1;min-width:0;overflow-wrap:anywhere}
 .d-btns{display:flex;gap:8px;flex:none}
 .d-btns .edit-top{flex:none;padding:8px 16px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin:4px 0 12px}
+.cols label{display:flex;align-items:center;gap:8px;color:var(--ink);font-size:14px;font-weight:400;padding:6px 0;cursor:pointer}
+.cols input{width:20px;height:20px;accent-color:var(--accent);margin:0}
+.col-links{display:flex;gap:14px;margin:0 0 6px;font-size:13px}
+.scope{display:grid;gap:6px;margin:0 0 14px}
+.scope label{display:flex;align-items:center;gap:8px;color:var(--ink);font-size:14px;font-weight:400;cursor:pointer}
+.scope input{width:18px;height:18px;accent-color:var(--accent);margin:0}
+.sub{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:6px 0 4px}
 .gal-note{font-size:13px;color:var(--muted);margin:0 0 14px}
 .lb{position:fixed;inset:0;z-index:40;background:#000;display:flex;flex-direction:column;color:#fff}
 .lb-top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 12px 10px}
@@ -159,7 +167,7 @@ textarea{min-height:96px;resize:vertical}
 <body>
 <div class="app">
   <header>
-    <div class="top"><h1>Contact Book</h1><div class="top-r"><button class="menu-btn" id="backupBtn" type="button">Backup</button></div></div>
+    <div class="top"><h1>Contact Book</h1><div class="top-r"><button class="menu-btn" id="excelBtn" type="button">Excel</button><button class="menu-btn" id="backupBtn" type="button">Backup</button></div></div>
     <div class="search">
       <input id="q" type="search" placeholder="Search name, title, notes…" aria-label="Search contacts">
       <select id="evFilter" aria-label="Filter by event"><option value="">All events</option></select>
@@ -176,7 +184,8 @@ textarea{min-height:96px;resize:vertical}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
-const APP_VERSION="12";
+const APP_VERSION="13";
+let lastVisible=[];
 const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
 let contacts=[]; let db=null; let col=null; let mode="local";
 const $=s=>document.querySelector(s);
@@ -364,6 +373,61 @@ function openBackup(){
   $("#b-file").onchange=e=>{const f=e.target.files[0];if(f)importBackup(f);};
 }
 $("#backupBtn").addEventListener("click",openBackup);
+/* ---------- Excel export ---------- */
+const EXCEL_COLS=[
+  ["name","Name",c=>c.name||""],["title","Professional title",c=>c.title||""],["company","Company",c=>c.company||""],
+  ["linkedin","LinkedIn",c=>linkedinUrl(c.linkedin)],["phone","Phone",c=>c.phone||""],["email","Email",c=>c.email||""],
+  ["event","Event / conference",c=>c.event||""],["met","When met",c=>c.metYear?metLabel(c):""],
+  ["health","Health / close to my PhD",c=>c.health?"Yes":""],["notes","Notes",c=>c.notes||""],
+  ["photos","Photos & slides",c=>{const n=Array.isArray(c.gallery)?c.gallery.length:0;return n?n:"";}]];
+const DEFAULT_COLS=["name","title","company","linkedin","phone","email","event","met","notes"];
+function savedCols(){try{const v=JSON.parse(localStorage.getItem("contactbook.excelCols"));if(Array.isArray(v)&&v.length)return v;}catch(e){}return DEFAULT_COLS;}
+function loadXLSX(){
+  if(window.XLSX)return Promise.resolve();
+  return new Promise((res,rej)=>{const sc=document.createElement("script");sc.src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";sc.onload=res;sc.onerror=()=>rej(new Error("lib"));document.head.appendChild(sc);});
+}
+function openExcel(){
+  const chosen=new Set(savedCols());
+  const filtered=lastVisible.length!==contacts.length;
+  openSheet(`<div class="sheet-head"><h3 id="sheetTitle">Download as Excel</h3><button class="x" type="button" data-close>Close</button></div>
+    <p class="sub">Columns to include</p>
+    <div class="col-links"><button class="link" type="button" id="x-all">Select all</button><button class="link" type="button" id="x-none">Clear</button></div>
+    <div class="cols">${EXCEL_COLS.map(([k,l])=>`<label for="x-${k}"><input type="checkbox" id="x-${k}" value="${k}" ${chosen.has(k)?"checked":""}>${esc(l)}</label>`).join("")}</div>
+    <p class="sub">Which contacts</p>
+    <div class="scope"><label for="x-sall"><input type="radio" name="xscope" id="x-sall" value="all" ${filtered?"":"checked"}>All contacts (${contacts.length})</label>
+      <label for="x-sview"><input type="radio" name="xscope" id="x-sview" value="view" ${filtered?"checked":""} ${filtered?"":"disabled"}>Only the ones shown now (${lastVisible.length})${filtered?"":" · use search or the filter first"}</label></div>
+    <div class="err" id="x-err"></div>
+    <div class="actions"><button class="btn primary" type="button" id="x-go">Download Excel file</button></div>`);
+  const boxes=()=>[...document.querySelectorAll('.cols input')];
+  $("#x-all").onclick=()=>boxes().forEach(b=>b.checked=true);
+  $("#x-none").onclick=()=>boxes().forEach(b=>b.checked=false);
+  $("#x-go").onclick=async()=>{
+    const keys=boxes().filter(b=>b.checked).map(b=>b.value);
+    if(!keys.length){$("#x-err").textContent="Pick at least one column.";return;}
+    const rows=($("#x-sview").checked?lastVisible:contacts.slice().sort((a,b)=>metKey(b)-metKey(a)||(a.name||"").localeCompare(b.name||"")));
+    if(!rows.length){$("#x-err").textContent="There are no contacts to export.";return;}
+    try{localStorage.setItem("contactbook.excelCols",JSON.stringify(keys))}catch(e){}
+    const btn=$("#x-go");btn.disabled=true;btn.textContent="Preparing…";
+    try{
+      await loadXLSX();
+      const cols=EXCEL_COLS.filter(c=>keys.includes(c[0]));
+      const aoa=[cols.map(c=>c[1])].concat(rows.map(r=>cols.map(c=>c[2](r))));
+      const ws=XLSX.utils.aoa_to_sheet(aoa);
+      const li=cols.findIndex(c=>c[0]==="linkedin");
+      if(li>=0)rows.forEach((r,i)=>{const ref=XLSX.utils.encode_cell({r:i+1,c:li});const u=linkedinUrl(r.linkedin);if(u&&ws[ref])ws[ref].l={Target:u};});
+      ws["!cols"]=cols.map((c,ci)=>({wch:Math.min(60,Math.max(c[1].length,...aoa.slice(1).map(row=>String(row[ci]).split("\n")[0].length))+2)}));
+      ws["!autofilter"]={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:rows.length,c:cols.length-1}})};
+      const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Contacts");
+      const buf=XLSX.write(wb,{bookType:"xlsx",type:"array"});
+      const ok=await deliverFile(`contacts-${stamp()}.xlsx`,buf,"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      if(ok){closeSheet();toast(`Excel file with ${rows.length} contact${rows.length===1?"":"s"} ready`);return;}
+    }catch(e){$("#x-err").textContent="Couldn't create the file. Check your internet connection the first time you use this, then try again.";}
+    btn.disabled=false;btn.textContent="Download Excel file";
+  };
+}
+$("#excelBtn").addEventListener("click",openExcel);
+
+
 
 /* ---------- phone prefixes ---------- */
 const COUNTRIES=[["AF","Afghanistan","93"],["AL","Albania","355"],["DZ","Algeria","213"],["AD","Andorra","376"],["AO","Angola","244"],["AR","Argentina","54"],["AM","Armenia","374"],["AU","Australia","61"],["AT","Austria","43"],["AZ","Azerbaijan","994"],["BH","Bahrain","973"],["BD","Bangladesh","880"],["BY","Belarus","375"],["BE","Belgium","32"],["BO","Bolivia","591"],["BA","Bosnia & Herzegovina","387"],["BR","Brazil","55"],["BG","Bulgaria","359"],["KH","Cambodia","855"],["CM","Cameroon","237"],["CA","Canada","1"],["CL","Chile","56"],["CN","China","86"],["CO","Colombia","57"],["CR","Costa Rica","506"],["HR","Croatia","385"],["CU","Cuba","53"],["CY","Cyprus","357"],["CZ","Czechia","420"],["DK","Denmark","45"],["DO","Dominican Republic","1"],["EC","Ecuador","593"],["EG","Egypt","20"],["SV","El Salvador","503"],["EE","Estonia","372"],["ET","Ethiopia","251"],["FI","Finland","358"],["FR","France","33"],["GE","Georgia","995"],["DE","Germany","49"],["GH","Ghana","233"],["GR","Greece","30"],["GT","Guatemala","502"],["HN","Honduras","504"],["HK","Hong Kong","852"],["HU","Hungary","36"],["IS","Iceland","354"],["IN","India","91"],["ID","Indonesia","62"],["IR","Iran","98"],["IQ","Iraq","964"],["IE","Ireland","353"],["IL","Israel","972"],["IT","Italy","39"],["CI","Ivory Coast","225"],["JM","Jamaica","1"],["JP","Japan","81"],["JO","Jordan","962"],["KZ","Kazakhstan","7"],["KE","Kenya","254"],["XK","Kosovo","383"],["KW","Kuwait","965"],["LV","Latvia","371"],["LB","Lebanon","961"],["LY","Libya","218"],["LI","Liechtenstein","423"],["LT","Lithuania","370"],["LU","Luxembourg","352"],["MY","Malaysia","60"],["MT","Malta","356"],["MX","Mexico","52"],["MD","Moldova","373"],["MC","Monaco","377"],["ME","Montenegro","382"],["MA","Morocco","212"],["MZ","Mozambique","258"],["NP","Nepal","977"],["NL","Netherlands","31"],["NZ","New Zealand","64"],["NI","Nicaragua","505"],["NG","Nigeria","234"],["MK","North Macedonia","389"],["NO","Norway","47"],["OM","Oman","968"],["PK","Pakistan","92"],["PS","Palestine","970"],["PA","Panama","507"],["PY","Paraguay","595"],["PE","Peru","51"],["PH","Philippines","63"],["PL","Poland","48"],["PT","Portugal","351"],["PR","Puerto Rico","1"],["QA","Qatar","974"],["RO","Romania","40"],["RU","Russia","7"],["RW","Rwanda","250"],["SM","San Marino","378"],["SA","Saudi Arabia","966"],["SN","Senegal","221"],["RS","Serbia","381"],["SG","Singapore","65"],["SK","Slovakia","421"],["SI","Slovenia","386"],["ZA","South Africa","27"],["KR","South Korea","82"],["ES","Spain","34"],["LK","Sri Lanka","94"],["SE","Sweden","46"],["CH","Switzerland","41"],["SY","Syria","963"],["TW","Taiwan","886"],["TZ","Tanzania","255"],["TH","Thailand","66"],["TN","Tunisia","216"],["TR","Turkey","90"],["UG","Uganda","256"],["UA","Ukraine","380"],["AE","United Arab Emirates","971"],["GB","United Kingdom","44"],["US","United States","1"],["UY","Uruguay","598"],["UZ","Uzbekistan","998"],["VE","Venezuela","58"],["VN","Vietnam","84"],["ZM","Zambia","260"],["ZW","Zimbabwe","263"]];
@@ -523,7 +587,7 @@ function render(){
     if(!q)return true;
     return [c.name,c.title,c.company,c.event,c.notes,c.phone,c.email].join(" ").toLowerCase().includes(q);
   }).sort((a,b)=>metKey(b)-metKey(a)||(a.name||"").localeCompare(b.name||""));
-  
+  lastVisible=list;
   const main=$("#main");
   if(!contacts.length){main.innerHTML=`<div class="empty"><strong>No contacts yet</strong>Tap “Add contact” after your next event.</div>`;return;}
   if(!list.length){main.innerHTML=`<div class="empty"><strong>No matches</strong>Try a different search or event.</div>`;return;}
