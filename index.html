@@ -65,6 +65,19 @@ h1{font:400 30px/1 var(--display);white-space:nowrap;margin:0;letter-spacing:.2p
 .gal{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}
 .gal button{border:0;padding:0;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--chip);cursor:pointer}
 .gal img{width:100%;height:100%;object-fit:cover;display:block}
+.gal button{position:relative}
+.gal button.sel{outline:3px solid var(--accent);outline-offset:-3px}
+.gal button.sel::after{content:"✓";position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font:700 13px/22px var(--body);text-align:center}
+.gal.selecting button:not(.sel) img{opacity:.75}
+.gal-tools{display:flex;gap:8px}
+.gal-bar{display:flex;gap:8px;margin:-6px 0 14px}
+.gal-bar .btn{padding:10px}
+.picker{position:fixed;inset:0;z-index:45;background:rgba(10,15,25,.5);display:flex;align-items:flex-end;justify-content:center}
+.picker-box{background:var(--surface);width:100%;max-width:640px;max-height:80%;border-radius:20px 20px 0 0;display:flex;flex-direction:column;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
+.picker-box h3{font:400 24px/1.1 var(--display);margin:0}
+.picker-box input{margin:12px 0;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+.picker-list{overflow-y:auto;display:grid;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px}
+.picker-list .row{border-radius:0}
 .gal-note{font-size:13px;color:var(--muted);margin:0 0 14px}
 .lb{position:fixed;inset:0;z-index:40;background:#000;display:flex;flex-direction:column;color:#fff}
 .lb-top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 12px 10px}
@@ -145,7 +158,7 @@ textarea{min-height:96px;resize:vertical}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
-const APP_VERSION="8";
+const APP_VERSION="9";
 const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
 let contacts=[]; let db=null; let col=null; let mode="local";
 const $=s=>document.querySelector(s);
@@ -397,22 +410,58 @@ async function removeGalleryPhoto(id,p){
   await sb.storage.from(BUCKET).remove([p+".jpg",p+"_t.jpg"]);
   await saveContact({...c,gallery:cleanGallery(c).filter(g=>g.p!==p),updatedAt:Date.now()});await flush();
 }
+async function removeGalleryPhotos(id,paths){
+  const c=contacts.find(x=>x.id===id);if(!c||!paths.length)return;
+  const r=await sb.storage.from(BUCKET).remove(paths.flatMap(p=>[p+".jpg",p+"_t.jpg"]));if(r.error)throw r.error;
+  await saveContact({...c,gallery:cleanGallery(c).filter(g=>!paths.includes(g.p)),updatedAt:Date.now()});await flush();
+}
+async function moveGalleryPhotos(fromId,toId,paths){
+  const from=contacts.find(x=>x.id===fromId),to=contacts.find(x=>x.id===toId);if(!from||!to||!paths.length)return;
+  const moving=cleanGallery(from).filter(g=>paths.includes(g.p));
+  await saveContact({...from,gallery:cleanGallery(from).filter(g=>!paths.includes(g.p)),updatedAt:Date.now()});
+  await saveContact({...to,gallery:cleanGallery(to).concat(moving),updatedAt:Date.now()});await flush();
+}
+function pickContact(excludeId,title){
+  return new Promise(resolve=>{
+    const ov=document.createElement("div");ov.className="picker";
+    ov.innerHTML=`<div class="picker-box" role="dialog" aria-label="${esc(title)}"><div class="sheet-head" style="margin:0"><h3>${esc(title)}</h3><button class="x" type="button" data-pc>Cancel</button></div>
+      <input type="search" placeholder="Search contacts…" aria-label="Search contacts"><div class="picker-list"></div></div>`;
+    document.body.appendChild(ov);
+    const list=ov.querySelector(".picker-list"),q=ov.querySelector("input");
+    const draw=()=>{const v=q.value.trim().toLowerCase();
+      const items=contacts.filter(c=>c.id!==excludeId&&(!v||[c.name,c.company,c.event].join(" ").toLowerCase().includes(v))).sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+      list.innerHTML=items.length?items.map(c=>`<button class="row" type="button" data-to="${esc(c.id)}">${avatar(c)}<span class="who"><div class="name">${esc(c.name)}</div><div class="role">${esc([c.title,c.company].filter(Boolean).join(" · ")||"")}</div></span></button>`).join(""):'<div class="row" style="cursor:default;color:var(--muted)">No other contacts match.</div>';};
+    const done=v=>{ov.remove();document.removeEventListener("keydown",key,true);resolve(v);};
+    const key=e=>{if(e.key==="Escape"){e.stopPropagation();done(null);}};
+    document.addEventListener("keydown",key,true);
+    q.oninput=draw;ov.onclick=e=>{if(e.target===ov||e.target.closest("[data-pc]"))return done(null);const b=e.target.closest("[data-to]");if(b)done(b.dataset.to);};
+    draw();
+  });
+}
 async function removeAllGallery(c){const g=cleanGallery(c);if(sb&&session&&g.length){try{await sb.storage.from(BUCKET).remove(g.flatMap(x=>[x.p+".jpg",x.p+"_t.jpg"]));}catch(_){}}}
+let galSel=new Set(),galSelecting=false;
+function setSelecting(on){galSelecting=on;if(!on)galSel.clear();
+  const box=$("#gal");if(!box)return;box.classList.toggle("selecting",on);
+  box.querySelectorAll("[data-p]").forEach(b=>{b.classList.toggle("sel",galSel.has(b.dataset.p));b.setAttribute("aria-pressed",galSel.has(b.dataset.p));});
+  const n=galSel.size;$("#g-sel").textContent=on?"Done":"Select";$("#g-add").hidden=on;
+  $("#g-title").textContent=on?(n?`${n} selected`:"Tap photos to select"):"Photos & slides";
+  $("#g-bar").hidden=!on;$("#g-move").disabled=!n;$("#g-del").disabled=!n;$("#g-del").textContent=n?`Delete (${n})`:"Delete";$("#g-del").dataset.confirm="";}
 async function fillGallery(id){
   const box=$("#gal"),head=$("#gal-status");if(!box)return;
   const c=contacts.find(x=>x.id===id);if(!c)return;
   if(!sb||!session){box.innerHTML="";$("#gal-note").textContent="Sign in to sync to add photos and slides from the event.";$("#g-add").hidden=true;return;}
   const g=cleanGallery(c);
-  if(!g.length){box.innerHTML="";$("#gal-note").textContent="No photos yet. Add photos from the event or pictures of their slides.";return;}
+  if(!g.length){const sb2=$("#g-sel");if(sb2)sb2.hidden=true;setSelecting(false);box.innerHTML="";$("#gal-note").textContent="No photos yet. Add photos from the event or pictures of their slides.";return;}
   $("#gal-note").textContent="";
-  box.innerHTML=g.map((x,i)=>`<button type="button" data-gi="${i}" aria-label="Open photo ${i+1}"><img alt="" data-p="${x.p}_t.jpg"></button>`).join("");
+  const selBtn=$("#g-sel");if(selBtn)selBtn.hidden=false;
+  box.innerHTML=g.map((x,i)=>`<button type="button" data-gi="${i}" data-p="${x.p}" class="${galSel.has(x.p)?"sel":""}" aria-label="Photo ${i+1}" aria-pressed="${galSel.has(x.p)}"><img alt=""></button>`).join("");
   const urls=await signedUrls(g.map(x=>x.p+"_t.jpg"));
   box.querySelectorAll("img").forEach((im,i)=>{if(urls[i])im.src=urls[i];});
 }
 function openLightbox(id,start){
   const c=contacts.find(x=>x.id===id);let g=cleanGallery(c);if(!g.length)return;let i=start;
   const lb=document.createElement("div");lb.className="lb";lb.setAttribute("role","dialog");lb.setAttribute("aria-label","Photo viewer");
-  lb.innerHTML=`<div class="lb-top"><button type="button" data-x>Close</button><span id="lb-n"></span><button type="button" data-rm>Delete</button></div>
+  lb.innerHTML=`<div class="lb-top"><button type="button" data-x>Close</button><span id="lb-n"></span><span style="display:flex;gap:8px"><button type="button" data-mv>Move</button><button type="button" data-rm>Delete</button></span></div>
     <div class="lb-img"><img id="lb-im" alt=""><button class="lb-nav prev" type="button" aria-label="Previous">‹</button><button class="lb-nav next" type="button" aria-label="Next">›</button></div>
     <div class="lb-cap"><input id="lb-cap" placeholder="Add a caption, e.g. their slide on river restoration" aria-label="Caption"></div>`;
   document.body.appendChild(lb);
@@ -429,6 +478,10 @@ function openLightbox(id,start){
   document.addEventListener("keydown",key,true);
   lb.querySelector("[data-x]").onclick=close;lb.querySelector(".prev").onclick=()=>go(-1);lb.querySelector(".next").onclick=()=>go(1);
   lb.querySelector("#lb-cap").addEventListener("change",saveCap);
+  lb.querySelector("[data-mv]").onclick=async()=>{await saveCap();const to=await pickContact(id,"Move photo to…");if(!to)return;
+    try{await moveGalleryPhotos(id,to,[g[i].p]);const name=(contacts.find(x=>x.id===to)||{}).name||"contact";toast(`Moved to ${name}`);
+      g=cleanGallery(contacts.find(x=>x.id===id));if(!g.length){lb.remove();document.removeEventListener("keydown",key,true);fillGallery(id);return;}i=Math.min(i,g.length-1);show();}
+    catch(_){toast("Couldn't move the photo. Try again.");}};
   lb.querySelector("[data-rm]").onclick=async e=>{const b=e.currentTarget;if(b.dataset.confirm!=="1"){b.dataset.confirm="1";b.textContent="Tap again to delete";return;}
     b.textContent="Deleting…";try{await removeGalleryPhoto(id,g[i].p);g=cleanGallery(contacts.find(x=>x.id===id));
       if(!g.length){lb.remove();document.removeEventListener("keydown",key,true);fillGallery(id);return;}i=Math.min(i,g.length-1);show();}
@@ -491,16 +544,28 @@ function openDetail(id){
       <div class="fact"><span>When</span><div class="val">${esc(metLabel(c))}</div></div>
       <div class="fact"><span>Notes</span><div class="val">${linkify(c.notes)||"—"}</div></div>
     </div>
-    <div class="gal-head"><span>Photos &amp; slides</span><button class="small-btn" type="button" id="g-add">Add photos</button></div>
+    <div class="gal-head"><span id="g-title">Photos &amp; slides</span><div class="gal-tools"><button class="small-btn" type="button" id="g-sel" hidden>Select</button><button class="small-btn" type="button" id="g-add">Add photos</button></div></div>
     <input id="g-file" class="vh" type="file" accept="image/*" multiple>
     <p class="gal-note" id="gal-note"></p><div class="gal" id="gal"></div>
+    <div class="gal-bar" id="g-bar" hidden><button class="btn" type="button" id="g-move">Move to…</button><button class="btn danger" type="button" id="g-del">Delete</button></div>
     <div class="actions">
       ${c.phone?`<button class="btn" type="button" data-copy="${esc(c.phone)}">Copy number</button>`:""}
       <button class="btn primary" type="button" data-edit="${esc(c.id)}">Edit</button>
     </div>`);
   fillGallery(c.id);
   $("#g-add").onclick=()=>$("#g-file").click();
-  $("#gal").onclick=e=>{const b=e.target.closest("[data-gi]");if(b)openLightbox(c.id,+b.dataset.gi);};
+  galSel=new Set();galSelecting=false;
+  $("#gal").onclick=e=>{const b=e.target.closest("[data-gi]");if(!b)return;
+    if(galSelecting){const p=b.dataset.p;galSel.has(p)?galSel.delete(p):galSel.add(p);setSelecting(true);}
+    else openLightbox(c.id,+b.dataset.gi);};
+  $("#g-sel").onclick=()=>setSelecting(!galSelecting);
+  $("#g-move").onclick=async()=>{const paths=[...galSel];const to=await pickContact(c.id,paths.length===1?"Move photo to…":`Move ${paths.length} photos to…`);if(!to)return;
+    try{await moveGalleryPhotos(c.id,to,paths);toast(`Moved to ${(contacts.find(x=>x.id===to)||{}).name||"contact"}`);}catch(_){toast("Couldn't move the photos. Try again.");}
+    setSelecting(false);fillGallery(c.id);};
+  $("#g-del").onclick=async e=>{const b=e.currentTarget;const paths=[...galSel];if(!paths.length)return;
+    if(b.dataset.confirm!=="1"){b.dataset.confirm="1";b.textContent=`Tap again to delete ${paths.length}`;return;}
+    b.textContent="Deleting…";try{await removeGalleryPhotos(c.id,paths);toast(paths.length===1?"Photo deleted":`${paths.length} photos deleted`);}catch(_){toast("Couldn't delete. Try again.");}
+    setSelecting(false);fillGallery(c.id);};
   $("#g-file").onchange=async e=>{const files=[...e.target.files];e.target.value="";if(!files.length)return;
     const btn=$("#g-add");btn.disabled=true;
     try{await addGalleryPhotos(c.id,files,(n,t)=>{btn.textContent=`Uploading ${n} of ${t}…`;});toast(files.length===1?"Photo added":`${files.length} photos added`);}
