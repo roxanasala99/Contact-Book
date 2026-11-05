@@ -145,9 +145,14 @@ async function saveContact(c){
   markPending(c.id,"upsert");render();flush();
 }
 async function deleteContact(id){contacts=contacts.filter(c=>c.id!==id);saveLocal();markPending(id,"delete");render();flush();}
-let flushing=false;
-async function flush(){
-  if(!sb||!session||flushing)return;flushing=true;
+let flushing=null, flushAgain=false;
+function flush(){
+  if(!sb||!session)return Promise.resolve();
+  if(flushing){flushAgain=true;return flushing;}
+  flushing=(async()=>{do{flushAgain=false;await flushOnce();}while(flushAgain);flushing=null;updateStatus();})();
+  return flushing;
+}
+async function flushOnce(){
   try{
     const p=getPending();
     for(const id of Object.keys(p)){
@@ -160,7 +165,6 @@ async function flush(){
     }
     syncState="synced";syncErr="";
   }catch(e){syncState="pending";syncErr=e&&e.message||"";}
-  flushing=false;updateStatus();
 }
 async function pull(){
   if(!sb||!session)return;
